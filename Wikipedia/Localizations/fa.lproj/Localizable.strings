@@ -109,7 +109,6 @@
 "article-toolbar-reading-themes-controls-toolbar-item" = "تنظیمات پوستهٔ خواندن";
 "article-unable-to-load-article" = "بارگیری مقاله ناموفق بود.";
 "article-unable-to-load-section" = "امکان بارگیری این بخش وجود ندارد. برای رفع مشکل صفحه را تازه کنید.";
-"back" = "بازگشت";
 "back-button-accessibility-label" = "بازگشت";
 "button-done" = "انجام شد";
 "button-next" = "بعدی";
@@ -160,7 +159,9 @@
 "explore-most-read-more-list-title-for-date" = "بالاترین در $1";
 "explore-nearby-heading" = "مکان‌های نزدیک";
 "explore-nearby-placeholder-heading" = "مکان‌ها";
+// Fuzzy
 "explore-nearby-placeholder-sub-heading-on-language-wikipedia" = "در ویکی‌پدیای $1";
+// Fuzzy
 "explore-nearby-placeholder-sub-heading-on-wikipedia" = "در ویکی‌پدیا";
 "explore-nearby-sub-heading-your-location" = "مکان شما";
 "explore-potd-heading" = "نگارهٔ برگزیدهٔ روز";
@@ -212,8 +213,6 @@
 "hockeyapp-alert-title" = "متاسفیم، نرم‌افزار در بار پیشین از کار افتاد";
 "home-button-explore-accessibility-label" = "ویکی‌پدیا، بازگشت به کاوش";
 "home-button-history-accessibility-label" = "ویکی‌پدیا، بازگشت به تاریخچه";
-"home-button-popover-description" = "بر روی «W» برای کاوش خوراک‌ها بزنید";
-"home-button-popover-title" = "برای رفتن به خانه بر روی صفحه بزنید";
 "home-button-saved-accessibility-label" = "ویکی‌پدیا، بازگشت به ذخیره‌شده";
 "home-more-like-footer" = "موارد بیشتر شبیه $1";
 // Fuzzy
@@ -421,12 +420,12 @@
 "settings-notifications-system-turn-on" = "روشن کردن آگاه‌سازی";
 "settings-notifications-trending" = "رتبه‌بندی رویدادهای کنونی";
 "settings-primary-language" = "ابتدایی";
+// Fuzzy
 "settings-primary-language-details" = "اولین زبان موجود در این فهرست به عنوان زبان اصلی اپلیکیشن است. تغییر این زبان محتوای روزانه (مانند مقالات برگزیدهٔ روز) که در زمان مرور دیده می‌شوند، را تغییر می‌دهد.";
 "settings-storage-and-syncing-erase-saved-articles-button-title" = "حذف";
 "settings-support" = "حمایت از ویکی‌پدیا";
 "settings-title" = "تنظیمات";
 "share-a-fact-made-with" = "ساخته شده توسط اپلیکیشن ویکی‌پدیا";
-"share-a-fact-share-menu-item" = "اشتراک-مطلب";
 "share-article-name-on-wikipedia" = "\"$1\" در @ویکی‌پدیا:";
 "share-building" = "ساخت کارت اشتراک-مطلب...";
 "share-custom-menu-item" = "به اشتراک گذاشتن...";

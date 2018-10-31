@@ -16,6 +16,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, readonly) BOOL showsNavigationBar;
 
+@property (nonatomic, readwrite, getter=isSubtractingTopAndBottomSafeAreaInsetsFromScrollIndicatorInsets) BOOL subtractTopAndBottomSafeAreaInsetsFromScrollIndicatorInsets; // WKWebView workaround
+
 @property (nonatomic, strong, readonly) WMFNavigationBar *navigationBar;
 
 @property (nonatomic, strong, readonly) WMFNavigationBarHider *navigationBarHider;
