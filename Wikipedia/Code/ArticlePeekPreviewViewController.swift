@@ -1,6 +1,7 @@
 import UIKit
 import WMF
 
+@objc(WMFArticlePeekPreviewViewController)
 class ArticlePeekPreviewViewController: UIViewController, Peekable {
     
     fileprivate let articleURL: URL
@@ -20,17 +21,34 @@ class ArticlePeekPreviewViewController: UIViewController, Peekable {
         return nil
     }
     
-    fileprivate func fetchArticle() {
-        guard let article = dataStore.fetchArticle(with: articleURL) else {
-            dataStore.viewContext.wmf_updateOrCreateArticleSummariesForArticles(withURLs: [articleURL], completion: { (articles) in
-                guard let first = articles.first else {
-                    return
-                }
-                self.updateView(with: first)
-            })
+    private var isFetched = false
+    @objc func fetchArticle(_ completion:(() -> Void)? = nil ) {
+        assert(Thread.isMainThread)
+        guard !isFetched else {
+            completion?()
             return
         }
-        updateView(with: article)
+        isFetched = true
+        guard let key = articleURL.wmf_databaseKey else {
+            completion?()
+            return
+        }
+        dataStore.articleSummaryController.updateOrCreateArticleSummaryForArticle(withKey: key) { (article, _) in
+            defer {
+                completion?()
+            }
+            guard let article = article else {
+                return
+            }
+            self.updateView(with: article)
+        }
+    }
+    
+    public func updatePreferredContentSize(for contentWidth: CGFloat) {
+        var updatedContentSize = expandedArticleView.sizeThatFits(CGSize(width: contentWidth, height: UIView.noIntrinsicMetric), apply: true)
+        updatedContentSize.width = contentWidth // extra protection to ensure this stays == width
+        parent?.preferredContentSize = updatedContentSize
+        preferredContentSize = updatedContentSize
     }
     
     fileprivate func updateView(with article: WMFArticle) {
@@ -43,27 +61,29 @@ class ArticlePeekPreviewViewController: UIViewController, Peekable {
         expandedArticleView.isHidden = false
 
         activityIndicatorView.stopAnimating()
-        
-        let preferredSize = self.view.systemLayoutSizeFitting(CGSize(width: self.view.bounds.size.width, height: UIView.layoutFittingCompressedSize.height), withHorizontalFittingPriority: UILayoutPriority.required, verticalFittingPriority: UILayoutPriority.fittingSizeLevel)
-        self.preferredContentSize = expandedArticleView.sizeThatFits(preferredSize, apply: true)
-        self.parent?.preferredContentSize = self.preferredContentSize
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = theme.colors.paperBackground
-
+        view.translatesAutoresizingMaskIntoConstraints = false
+        
+        activityIndicatorView.translatesAutoresizingMaskIntoConstraints = false
         activityIndicatorView.style = theme.isDark ? .white : .gray
         activityIndicatorView.startAnimating()
-
         view.addSubview(activityIndicatorView)
+        
+        expandedArticleView.translatesAutoresizingMaskIntoConstraints = false
         expandedArticleView.isHidden = true
         view.addSubview(expandedArticleView)
+        expandedArticleView.updateFonts(with: traitCollection)
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        fetchArticle()
+        fetchArticle {
+            self.updatePreferredContentSize(for: self.view.bounds.width)
+        }
     }
 
     override func viewDidLayoutSubviews() {

@@ -1,10 +1,10 @@
 
 extension String {
     public var wmf_hasText: Bool {
-        return count > 0
+        return !isEmpty
     }
     public var wmf_hasNonWhitespaceText: Bool {
-        return wmf_hasText && self.trimmingCharacters(in: .whitespacesAndNewlines).count > 0
+        return wmf_hasText && !self.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
 
@@ -52,6 +52,12 @@ extension UILabel {
     
     public var wmf_hasAnyNonWhitespaceText: Bool {
         return wmf_hasNonWhitespaceText || wmf_hasNonWhitespaceAttributedText
+    }
+}
+
+extension UITextView {
+    public var wmf_hasAnyNonWhitespaceText: Bool {
+        return text?.wmf_hasNonWhitespaceText ?? false || attributedText?.wmf_hasNonWhitespaceText ?? false
     }
 }
 

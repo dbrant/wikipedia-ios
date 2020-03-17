@@ -11,6 +11,10 @@ module.exports = function (grunt) {
   grunt.initConfig( {
 
     browserify: {
+      codeMirror: {
+        src: ['codemirror/**/codemirror-range-*.js'],
+        dest: '../wikipedia/assets/codemirror/codemirror-range-determination-bundle.js'
+      },
       distMain: {
         src: [
           'index-main.js',
@@ -18,13 +22,6 @@ module.exports = function (grunt) {
           '!preview-main.js'
         ],
         dest: `${distFolder}index.js`
-      },
-      distPreview: {
-        src: [
-          'preview-main.js',
-          'js/utilities.js'
-        ],
-        dest: `${distFolder}preview.js`
       },
       distAbout: {
         src: [
@@ -56,7 +53,7 @@ module.exports = function (grunt) {
         allJSFilesInJSFolder
       ],
       options: {
-        fix: false
+        fix: true
       }
     },
 
@@ -76,12 +73,16 @@ module.exports = function (grunt) {
             dest: distFolder
           },
           {
-            src: 'node_modules/wikimedia-page-library/build/wikimedia-page-library-transform.css',
-            dest: `${distFolder}wikimedia-page-library-transform.css`
+            expand: true,
+            cwd: '../Carthage/Checkouts/wikipedia-ios-codemirror/resources/',
+            src: ['**'],
+            dest: `${distFolder}codemirror/resources/`
           },
           {
-            src: 'node_modules/wikimedia-page-library/build/wikimedia-page-library-transform.css.map',
-            dest: `${distFolder}wikimedia-page-library-transform.css.map`
+            expand: true,
+            cwd: 'codemirror/',
+            src: ['**', '!**/codemirror-range-*.js'],
+            dest: `${distFolder}codemirror/`
           }
         ]
       }

@@ -19,7 +19,7 @@ public class ExploreCardCollectionViewCell: CollectionViewCell, Themeable {
     private let footerButton = AlignedImageButton()
     public weak var delegate: ExploreCardCollectionViewCellDelegate?
     private let cardBackgroundView = UIView()
-    private let cardCornerRadius = CGFloat(10)
+    private let cardCornerRadius = Theme.exploreCardCornerRadius
     private let cardShadowRadius = CGFloat(10)
     private let cardShadowOffset =  CGSize(width: 0, height: 2)
 
@@ -56,7 +56,7 @@ public class ExploreCardCollectionViewCell: CollectionViewCell, Themeable {
         undoLabel.numberOfLines = 0
         contentView.addSubview(undoLabel)
         undoButton.titleLabel?.numberOfLines = 0
-        undoButton.setTitle(WMFLocalizedString("explore-feed-preferences-undo-customization", value: "Undo", comment: "Title for button that reverts recent feed customization changes"), for: .normal)
+        undoButton.setTitle(CommonStrings.undo, for: .normal)
         undoButton.addTarget(self, action: #selector(undoButtonPressed), for: .touchUpInside)
         undoButton.isUserInteractionEnabled = true
         undoButton.titleLabel?.textAlignment = .right
@@ -133,8 +133,6 @@ public class ExploreCardCollectionViewCell: CollectionViewCell, Themeable {
     public var undoType: WMFContentGroupUndoType = .none {
         didSet {
             switch undoType {
-            case .none:
-                isCollapsed = false
             case .contentGroup:
                 undoTitle = WMFLocalizedString("explore-feed-preferences-card-hidden-title", value: "Card hidden", comment: "Title for button that appears in place of feed card hidden by user via the overflow button")
                 isCollapsed = true
@@ -144,6 +142,8 @@ public class ExploreCardCollectionViewCell: CollectionViewCell, Themeable {
                 }
                 undoTitle = String.localizedStringWithFormat(WMFLocalizedString("explore-feed-preferences-feed-cards-hidden-title", value: "All %@ cards hidden", comment: "Title for cell that appears in place of feed card hidden by user via the overflow button - %@ is replaced with feed card type"), title)
                 isCollapsed = true
+            default:
+               isCollapsed = false
             }
         }
     }

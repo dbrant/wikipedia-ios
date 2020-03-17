@@ -1,9 +1,7 @@
-#import <UIKit/UIKit.h>
-@import WMF;
+@import UIKit;
+@import WMF.Swift;
 
 NS_ASSUME_NONNULL_BEGIN
-
-@class WMFNavigationBar;
 
 /*!
  @class        WMFViewController
@@ -13,6 +11,10 @@ NS_ASSUME_NONNULL_BEGIN
 @interface WMFViewController : UIViewController <WMFThemeable, WMFNavigationBarHiderDelegate>
 
 @property (nonatomic, strong) WMFTheme *theme;
+
+@property (nonatomic, readonly) UIToolbar *toolbar;
+@property (nonatomic, readonly) UIToolbar *secondToolbar;
+@property (nonatomic, readonly, getter=isSecondToolbarHidden) BOOL secondToolbarHidden;
 
 @property (nonatomic, readonly) BOOL showsNavigationBar;
 
@@ -27,6 +29,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)scrollViewInsetsDidChange;
 
 - (void)scrollToTop;
+
+- (void)setToolbarHidden:(BOOL)hidden animated:(BOOL)animated;
+- (void)setSecondToolbarHidden:(BOOL)hidden animated:(BOOL)animated;
+- (void)setAdditionalSecondToolbarSpacing:(CGFloat)spacing animated:(BOOL)animated;
 
 @end
 

@@ -1,4 +1,5 @@
 @import CoreLocation;
+#import <WMF/WMFLegacyFetcher.h>
 
 @class WMFLocationSearchResults;
 
@@ -18,23 +19,21 @@ typedef NS_ENUM(NSUInteger, WMFLocationSearchSortStyle) {
     WMFLocationSearchSortStylePageViewsAndLinks
 };
 
-@interface WMFLocationSearchFetcher : NSObject
+@interface WMFLocationSearchFetcher : WMFLegacyFetcher
 
-- (NSURLSessionDataTask *)fetchArticlesWithSiteURL:(NSURL *)siteURL
-                                          location:(CLLocation *)location
-                                       resultLimit:(NSUInteger)resultLimit
-                                        completion:(void (^)(WMFLocationSearchResults *results))completion
-                                           failure:(void (^)(NSError *error))failure;
+- (void)fetchArticlesWithSiteURL:(NSURL *)siteURL
+                        location:(CLLocation *)location
+                     resultLimit:(NSUInteger)resultLimit
+                      completion:(void (^)(WMFLocationSearchResults *results))completion
+                         failure:(void (^)(NSError *error))failure;
 
-- (NSURLSessionDataTask *)fetchArticlesWithSiteURL:(NSURL *)siteURL
-                                          inRegion:(CLCircularRegion *)region
-                                matchingSearchTerm:(nullable NSString *)searchTerm
-                                         sortStyle:(WMFLocationSearchSortStyle)sortStyle
-                                       resultLimit:(NSUInteger)resultLimit
-                                        completion:(void (^)(WMFLocationSearchResults *results))completion
-                                           failure:(void (^)(NSError *error))failure;
-
-- (BOOL)isFetching;
+- (void)fetchArticlesWithSiteURL:(NSURL *)siteURL
+                        inRegion:(CLCircularRegion *)region
+              matchingSearchTerm:(nullable NSString *)searchTerm
+                       sortStyle:(WMFLocationSearchSortStyle)sortStyle
+                     resultLimit:(NSUInteger)resultLimit
+                      completion:(void (^)(WMFLocationSearchResults *results))completion
+                         failure:(void (^)(NSError *error))failure;
 
 @end
 

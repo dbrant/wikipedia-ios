@@ -35,7 +35,7 @@
             assert(false);
             break;
         case WMFContentGroupKindContinueReading:
-            URL = [WMFContentGroup continueReadingContentGroupURL];
+            URL = [WMFContentGroup continueReadingContentGroupURLForArticleURL:self.articleURL];
             break;
         case WMFContentGroupKindMainPage:
             URL = [WMFContentGroup mainPageURLForSiteURL:self.siteURL];
@@ -133,7 +133,7 @@
 - (void)updateDailySortPriorityWithSiteURLSortOrder:(nullable NSDictionary<NSString *, NSNumber *> *)siteURLSortOrderLookup {
     
     NSNumber *siteURLSortOrderNumber = nil;
-    NSString *siteURLDatabaseKey = self.siteURL.wmf_articleDatabaseKey;
+    NSString *siteURLDatabaseKey = self.siteURL.wmf_databaseKey;
     
     if (siteURLDatabaseKey) {
         siteURLSortOrderNumber = siteURLSortOrderLookup[siteURLDatabaseKey];
@@ -239,7 +239,7 @@
 }
 
 - (void)setSiteURL:(nullable NSURL *)siteURL {
-    self.siteURLString = siteURL.wmf_articleDatabaseKey;
+    self.siteURLString = siteURL.wmf_databaseKey;
 }
 
 - (void)setFullContentObject:(NSObject<NSCoding> *)fullContentObject {
@@ -360,8 +360,22 @@
     return theURL;
 }
 
-+ (nullable NSURL *)continueReadingContentGroupURL {
-    return [[self baseURL] URLByAppendingPathComponent:@"continue-reading"];
++ (nullable NSURL *)continueReadingContentGroupURLForArticleURL:(NSURL *)url {
+    NSParameterAssert(url);
+    NSString *title = url.wmf_title;
+    NSString *domain = url.wmf_domain;
+    NSString *language = url.wmf_language;
+    NSParameterAssert(title);
+    NSParameterAssert(domain);
+    NSParameterAssert(language);
+    if (!title || !domain || !language) {
+        return nil;
+    }
+    NSURLComponents *components = [NSURLComponents componentsWithURL:[self baseURL] resolvingAgainstBaseURL:NO];
+    NSString *encodedTitle = [title stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet wmf_URLArticleTitlePathComponentAllowedCharacterSet]];
+    NSString *path = [NSString pathWithComponents:@[@"/continue-reading", domain, language, encodedTitle]];
+    components.percentEncodedPath = path;
+    return components.URL;
 }
 
 + (nullable NSURL *)relatedPagesContentGroupURLForArticleURL:(NSURL *)url {
@@ -376,7 +390,7 @@
         return nil;
     }
     NSURLComponents *components = [NSURLComponents componentsWithURL:[self baseURL] resolvingAgainstBaseURL:NO];
-    NSString *encodedTitle = [title stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet wmf_URLPathComponentAllowedCharacterSet]];
+    NSString *encodedTitle = [title stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet wmf_URLArticleTitlePathComponentAllowedCharacterSet]];
     NSString *path = [NSString pathWithComponents:@[@"/related-pages", domain, language, encodedTitle]];
     components.percentEncodedPath = path;
     return components.URL;
@@ -481,7 +495,7 @@
     self.wasDismissed = YES;
 }
 
-- (void)updateVisibility {
+- (void)updateVisibilityForUserIsLoggedIn:(BOOL)isLoggedIn {
     if (self.wasDismissed) {
         if (self.isVisible) {
             self.isVisible = NO;
@@ -492,15 +506,39 @@
     if (self.contentType != WMFContentTypeAnnouncement) {
         return;
     }
-
-    WMFAnnouncement *announcement = (WMFAnnouncement *)self.contentPreview;
-    if (![announcement isKindOfClass:[WMFAnnouncement class]]) {
+    
+    dispatch_block_t markInvisible = ^{
         if (self.isVisible) {
             self.isVisible = NO;
         }
+    };
+
+    WMFAnnouncement *announcement = (WMFAnnouncement *)self.contentPreview;
+    if (![announcement isKindOfClass:[WMFAnnouncement class]]) {
+        markInvisible();
         return;
     }
-
+    
+    if (announcement.beta.boolValue) { // ignore beta announcements
+        markInvisible();
+        return;
+    }
+    
+    if (announcement.loggedIn && announcement.loggedIn.boolValue != isLoggedIn) {
+        markInvisible();
+        return;
+    }
+    
+    if (announcement.readingListSyncEnabled) { // ignore reading list announcements, regardless of true or false
+        markInvisible();
+        return;
+    }
+    
+#if WMF_ANNOUNCEMENT_DATE_IGNORE
+    if (!self.isVisible) {
+        self.isVisible = YES;
+    }
+#else
     if (!announcement.startTime || !announcement.endTime) {
         if (self.isVisible) {
             self.isVisible = NO;
@@ -518,6 +556,8 @@
             self.isVisible = NO;
         }
     }
+#endif
+    
 }
 @end
 
@@ -604,13 +644,11 @@
 }
 
 - (nullable WMFContentGroup *)newestGroupOfKind:(WMFContentGroupKind)kind requireIsVisible:(BOOL)isVisibleRequired {
+    return [self newestGroupOfKind:kind withPredicate:nil requireIsVisible:isVisibleRequired];
+}
+
+- (nullable WMFContentGroup *)newestGroupWithPredicate:(nullable NSPredicate *)predicate {
     NSFetchRequest *fetchRequest = [WMFContentGroup fetchRequest];
-    NSPredicate *predicate = nil;
-    if (isVisibleRequired) {
-        predicate = [NSPredicate predicateWithFormat:@"contentGroupKindInteger == %@ && isVisible == YES", @(kind)];
-    } else {
-        predicate = [NSPredicate predicateWithFormat:@"contentGroupKindInteger == %@", @(kind)];
-    }
     fetchRequest.predicate = predicate;
     fetchRequest.fetchLimit = 1;
     fetchRequest.sortDescriptors = @[[NSSortDescriptor sortDescriptorWithKey:@"midnightUTCDate" ascending:NO], [NSSortDescriptor sortDescriptorWithKey:@"dailySortPriority" ascending:YES], [NSSortDescriptor sortDescriptorWithKey:@"date" ascending:NO]];
@@ -621,6 +659,24 @@
         return nil;
     }
     return [contentGroups firstObject];
+}
+
+- (nullable WMFContentGroup *)newestGroupOfKind:(WMFContentGroupKind)kind withPredicate:(nullable NSPredicate *)additionalPredicate requireIsVisible:(BOOL)isVisibleRequired {
+    NSPredicate *predicate = nil;
+    if (isVisibleRequired) {
+        predicate = [NSPredicate predicateWithFormat:@"contentGroupKindInteger == %@ && isVisible == YES", @(kind)];
+    } else {
+        predicate = [NSPredicate predicateWithFormat:@"contentGroupKindInteger == %@", @(kind)];
+    }
+    NSCompoundPredicate *compoundPredicate = nil;
+    if (additionalPredicate) {
+        compoundPredicate = [NSCompoundPredicate andPredicateWithSubpredicates:@[predicate, additionalPredicate]];
+    }
+    return [self newestGroupWithPredicate:compoundPredicate ?: predicate];
+}
+
+- (nullable WMFContentGroup *)newestVisibleGroupOfKind:(WMFContentGroupKind)kind withPredicate:(nullable NSPredicate *)predicate {
+    return [self newestGroupOfKind:kind withPredicate:predicate requireIsVisible:YES];
 }
 
 - (nullable WMFContentGroup *)newestVisibleGroupOfKind:(WMFContentGroupKind)kind {
@@ -646,7 +702,7 @@
 
 - (nullable WMFContentGroup *)groupOfKind:(WMFContentGroupKind)kind forDate:(NSDate *)date siteURL:(NSURL *)url {
     NSFetchRequest *fetchRequest = [WMFContentGroup fetchRequest];
-    fetchRequest.predicate = [NSPredicate predicateWithFormat:@"contentGroupKindInteger == %@ && midnightUTCDate == %@ && siteURLString == %@", @(kind), date.wmf_midnightUTCDateFromLocalDate, url.wmf_articleDatabaseKey];
+    fetchRequest.predicate = [NSPredicate predicateWithFormat:@"contentGroupKindInteger == %@ && midnightUTCDate == %@ && siteURLString == %@", @(kind), date.wmf_midnightUTCDateFromLocalDate, url.wmf_databaseKey];
     fetchRequest.fetchLimit = 1;
     NSError *fetchError = nil;
     NSArray *contentGroups = [self executeFetchRequest:fetchRequest error:&fetchError];
@@ -742,14 +798,14 @@
 
 - (nullable WMFContentGroup *)locationContentGroupWithSiteURL:(nullable NSURL *)siteURL withinMeters:(CLLocationDistance)meters ofLocation:(CLLocation *)location {
     __block WMFContentGroup *locationContentGroup = nil;
-    NSString *siteURLString = siteURL.wmf_articleDatabaseKey;
+    NSString *siteURLString = siteURL.wmf_databaseKey;
     [self enumerateContentGroupsOfKind:WMFContentGroupKindLocation
                              withBlock:^(WMFContentGroup *_Nonnull group, BOOL *_Nonnull stop) {
                                  CLLocation *groupLocation = group.location;
                                  if (!groupLocation) {
                                      return;
                                  }
-                                 NSString *groupSiteURLString = group.siteURL.wmf_articleDatabaseKey;
+                                 NSString *groupSiteURLString = group.siteURL.wmf_databaseKey;
                                  if (siteURLString && groupSiteURLString && ![siteURLString isEqualToString:groupSiteURLString]) {
                                      return;
                                  }

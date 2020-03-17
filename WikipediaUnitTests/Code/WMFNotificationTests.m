@@ -24,7 +24,7 @@
 - (void)setUp {
     [super setUp];
 
-    [[NSUserDefaults wmf] wmf_resetToDefaultValues];
+    [[NSUserDefaults standardUserDefaults] wmf_resetToDefaultValues];
 
     self.dataStore = [MWKDataStore temporaryDataStore];
     NSURL *siteURL = [NSURL URLWithString:@"https://en.wikipedia.org"];
@@ -38,12 +38,12 @@
     self.scheduledForTomorrow = dateComponents.hour > WMFFeedNotificationMaxHour;
 
     [[LSNocilla sharedInstance] start];
-    self.feedURL = [WMFFeedContentFetcher feedContentURLForSiteURL:siteURL onDate:self.date];
+    self.feedURL = [WMFFeedContentFetcher feedContentURLForSiteURL:siteURL onDate:self.date configuration:[WMFConfiguration current]];
     NSData *feedJSONData = [[self wmf_bundle] wmf_dataFromContentsOfFile:@"MCSFeedTopReadNewsItem" ofType:@"json"];
     stubRequest(@"GET", self.feedURL.absoluteString).andReturn(200).withHeaders(@{@"Content-Type": @"application/json"}).withBody(feedJSONData);
 
     NSData *pageViewJSONData = [[self wmf_bundle] wmf_dataFromContentsOfFile:@"PageViews" ofType:@"json"];
-    NSRegularExpression *anyPageViewRequest = [NSRegularExpression regularExpressionWithPattern:@"https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/.*" options:0 error:nil];
+    NSRegularExpression *anyPageViewRequest = [NSRegularExpression regularExpressionWithPattern:@".*v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/.*" options:0 error:nil];
     stubRequest(@"GET", anyPageViewRequest)
         .andReturn(200)
         .withHeaders(@{@"Content-Type": @"application/json"})
@@ -60,7 +60,7 @@
 }
 
 - (void)testIncrementsNotificationCount {
-    NSUserDefaults *defaults = [NSUserDefaults wmf];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults wmf_setInTheNewsNotificationsEnabled:YES];
     [defaults wmf_setMostRecentInTheNewsNotificationDate:self.date];
     [defaults wmf_setInTheNewsMostRecentDateNotificationCount:WMFFeedNotificationMaxPerDay - 1];
@@ -86,7 +86,7 @@
 
 - (void)testDoesntIncrementNotificationCountForSameArticles {
 
-    NSUserDefaults *defaults = [NSUserDefaults wmf];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults wmf_setInTheNewsNotificationsEnabled:YES];
     [defaults wmf_setMostRecentInTheNewsNotificationDate:self.date];
     [defaults wmf_setInTheNewsMostRecentDateNotificationCount:1];
@@ -130,7 +130,7 @@
     NSData *feedJSONData = [[self wmf_bundle] wmf_dataFromContentsOfFile:@"MCSFeed" ofType:@"json"];
     stubRequest(@"GET", self.feedURL.absoluteString).andReturn(200).withHeaders(@{@"Content-Type": @"application/json"}).withBody(feedJSONData); // News item isn't in top read - test skip notify
 
-    NSUserDefaults *defaults = [NSUserDefaults wmf];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults wmf_setInTheNewsNotificationsEnabled:YES];
     [defaults wmf_setMostRecentInTheNewsNotificationDate:self.date];
     [defaults wmf_setInTheNewsMostRecentDateNotificationCount:WMFFeedNotificationMaxPerDay - 1];
@@ -155,7 +155,7 @@
 }
 
 - (void)testDoesntNotifyWhenHaveNotifiedThreeTimes {
-    NSUserDefaults *defaults = [NSUserDefaults wmf];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults wmf_setInTheNewsNotificationsEnabled:YES];
     [defaults wmf_setMostRecentInTheNewsNotificationDate:self.date];
     [defaults wmf_setInTheNewsMostRecentDateNotificationCount:WMFFeedNotificationMaxPerDay];

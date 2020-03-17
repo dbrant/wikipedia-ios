@@ -26,11 +26,11 @@ open class CollectionViewCell: UICollectionViewCell {
         backgroundView = UIView()
         selectedBackgroundView = UIView()
         reset()
-        layoutSubviews()
+        setNeedsLayout()
     }
     
     open func reset() {
-
+        
     }
     
     public var labelBackgroundColor: UIColor? {
@@ -53,9 +53,9 @@ open class CollectionViewCell: UICollectionViewCell {
         
     }
 
-    fileprivate var isSelectedOrHighlighted: Bool = false
+    var isSelectedOrHighlighted: Bool = false
     
-    public final func updateSelectedOrHighlighted() {
+    public func updateSelectedOrHighlighted() {
         let newIsSelectedOrHighlighted = isSelected || isHighlighted
         guard newIsSelectedOrHighlighted != isSelectedOrHighlighted else {
             return

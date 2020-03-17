@@ -5,6 +5,7 @@ import UIKit
 
 @objc(WMFSizeThatFitsView)
 open class SizeThatFitsView: SetupView {
+
     // MARK - Methods for subclassing
     
     // Subclassers should override setup instead of any of the initializers. Subclassers must call super.setup()
@@ -12,7 +13,8 @@ open class SizeThatFitsView: SetupView {
         super.setup()
         translatesAutoresizingMaskIntoConstraints = false
         autoresizesSubviews = false
-        layoutSubviews()
+        updateFonts(with: traitCollection)
+        setNeedsLayout()
     }
     
     // Subclassers should override sizeThatFits:apply: instead of layoutSubviews to lay out subviews.
@@ -45,5 +47,9 @@ open class SizeThatFitsView: SetupView {
     
     final override public func sizeThatFits(_ size: CGSize) -> CGSize {
         return sizeThatFits(size, apply: false)
+    }
+
+    open func updateFonts(with traitCollection: UITraitCollection) {
+
     }
 }

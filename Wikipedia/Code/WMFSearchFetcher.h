@@ -1,13 +1,13 @@
 @import Foundation;
 @import WMF.WMFBlockDefinitions;
-
+@import WMF.WMFLegacyFetcher;
 @class WMFSearchResults;
 
 NS_ASSUME_NONNULL_BEGIN
 
 extern NSUInteger const WMFMaxSearchResultLimit;
 
-@interface WMFSearchFetcher : NSObject
+@interface WMFSearchFetcher : WMFLegacyFetcher
 
 - (void)fetchArticlesForSearchTerm:(NSString *)searchTerm
                            siteURL:(NSURL *)siteURL
@@ -23,6 +23,12 @@ extern NSUInteger const WMFMaxSearchResultLimit;
                            failure:(WMFErrorHandler)failure
                            success:(WMFSearchResultsHandler)success;
 
+- (void)fetchFilesForSearchTerm:(NSString *)searchTerm
+                       resultLimit:(NSUInteger)resultLimit
+                    fullTextSearch:(BOOL)fullTextSearch
+           appendToPreviousResults:(nullable WMFSearchResults *)results
+                           failure:(WMFErrorHandler)failure
+                           success:(WMFSearchResultsHandler)success;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -4,7 +4,7 @@ public enum WMFAccountLoginError: LocalizedError {
     case statusNotPass(String?)
     case temporaryPasswordNeedsChange(String?)
     case needsOathTokenFor2FA(String?)
-    case wrongPassword
+    case wrongPassword(String?)
     case wrongToken
     public var errorDescription: String? {
         switch self {
@@ -16,8 +16,8 @@ public enum WMFAccountLoginError: LocalizedError {
             return message
         case .needsOathTokenFor2FA(let message?):
             return message
-        case .wrongPassword:
-            return WMFLocalizedString("field-alert-password-invalid", value:"Invalid password", comment:"Alert shown if password is not correct")
+        case .wrongPassword(let message?):
+            return message
         case .wrongToken:
             return WMFLocalizedString("field-alert-token-invalid", value:"Invalid code", comment:"Alert shown if token is not correct")
         default:
@@ -42,22 +42,14 @@ public class WMFAccountLoginResult: NSObject {
     }
 }
 
-public class WMFAccountLogin {
-    private let manager = AFHTTPSessionManager.wmf_createDefault()
-    public func isFetching() -> Bool {
-        return manager.operationQueue.operationCount > 0
-    }
-    
-    public func login(username: String, password: String, retypePassword: String?, loginToken: String, oathToken: String?, captchaID: String?, captchaWord: String?, siteURL: URL, success: @escaping WMFAccountLoginResultBlock, failure: @escaping WMFErrorHandler){
-        let manager = AFHTTPSessionManager(baseURL: siteURL, sessionConfiguration: Session.defaultConfiguration)
-        manager.responseSerializer = WMFApiJsonResponseSerializer.init();
+public class WMFAccountLogin: Fetcher {
+    public func login(username: String, password: String, retypePassword: String?, oathToken: String?, captchaID: String?, captchaWord: String?, siteURL: URL, reattemptOn401Response: Bool = false, success: @escaping WMFAccountLoginResultBlock, failure: @escaping WMFErrorHandler){
         
         var parameters = [
             "action": "clientlogin",
             "username": username,
             "password": password,
             "loginreturnurl": "https://www.wikipedia.org",
-            "logintoken": loginToken,
             "rememberMe": "1",
             "format": "json"
         ]
@@ -79,10 +71,13 @@ public class WMFAccountLogin {
             parameters["captchaWord"] = captchaWord
         }
 
-        _ = manager.wmf_apiPOST(with: parameters, success: { (_, response) in
+        performTokenizedMediaWikiAPIPOST(tokenType: .login, to: siteURL, with: parameters, reattemptLoginOn401Response:  reattemptOn401Response) { (result, response, error) in
+            if let error = error {
+                failure(error)
+                return
+            }
             guard
-                let response = response as? [String : AnyObject],
-                let clientlogin = response["clientlogin"] as? [String : AnyObject],
+                let clientlogin = result?["clientlogin"] as? [String : Any],
                 let status = clientlogin["status"] as? String
                 else {
                     failure(WMFAccountLoginError.cannotExtractLoginStatus)
@@ -94,7 +89,7 @@ public class WMFAccountLogin {
                 if let messageCode = clientlogin["messagecode"] as? String {
                     switch(messageCode) {
                     case "wrongpassword":
-                        failure(WMFAccountLoginError.wrongPassword)
+                        failure(WMFAccountLoginError.wrongPassword(message))
                         return
                     case "oathauth-login-failed":
                         failure(WMFAccountLoginError.wrongToken)
@@ -107,7 +102,12 @@ public class WMFAccountLogin {
                     status == "UI",
                     let requests = clientlogin["requests"] as? [AnyObject]
                 {
-                    if let passwordAuthRequest = requests.first(where:{$0["id"]! as! String == "MediaWiki\\Auth\\PasswordAuthenticationRequest"}),
+                    if let passwordAuthRequest = requests.first(where: { request in
+                        guard let id = request["id"] as? String else {
+                            return false
+                        }
+                        return id.hasSuffix("PasswordAuthenticationRequest")
+                    }),
                         let fields = passwordAuthRequest["fields"] as? [String : AnyObject],
                         let _ = fields["password"] as? [String : AnyObject],
                         let _ = fields["retype"] as? [String : AnyObject]
@@ -115,7 +115,12 @@ public class WMFAccountLogin {
                         failure(WMFAccountLoginError.temporaryPasswordNeedsChange(message))
                         return
                     }
-                    if let OATHTokenRequest = requests.first(where:{$0["id"]! as! String == "TOTPAuthenticationRequest"}),
+                    if let OATHTokenRequest = requests.first(where: { request in
+                        guard let id = request["id"] as? String else {
+                            return false
+                        }
+                        return id.hasSuffix("TOTPAuthenticationRequest")
+                    }),
                         let fields = OATHTokenRequest["fields"] as? [String : AnyObject],
                         let _ = fields["OATHToken"] as? [String : AnyObject]
                     {
@@ -129,8 +134,6 @@ public class WMFAccountLogin {
             }
             let normalizedUsername = clientlogin["username"] as? String ?? username
             success(WMFAccountLoginResult.init(status: status, username: normalizedUsername, message: message))
-        }, failure: { (_, error) in
-            failure(error)
-        })
+        }
     }
 }

@@ -4,17 +4,19 @@ import Foundation
     func performBackgroundFetch(_ completion: @escaping (UIBackgroundFetchResult) -> Void)
 }
 
-@objc(WMFBackgroundFetcherController) public class BackgroundFetcherController: NSObject {
-    var fetchers = PointerArray<BackgroundFetcher>()
+@objc(WMFBackgroundFetcherController) public class BackgroundFetcherController: WorkerController {
+    var fetchers = [BackgroundFetcher]()
     
     @objc public func add(_ worker: BackgroundFetcher) {
         fetchers.append(worker)
     }
     
     @objc public func performBackgroundFetch(_ completion: @escaping (UIBackgroundFetchResult) -> Void) {
-        fetchers.allObjects.asyncMap({ (fetcher, completion) in
+        let identifier = UUID().uuidString
+        delegate?.workerControllerWillStart(self, workWithIdentifier: identifier)
+        fetchers.asyncMap({ (fetcher, completion) in
             fetcher.performBackgroundFetch(completion)
-        }) { (results) in
+        }) { [weak self] (results) in
             var combinedResult = UIBackgroundFetchResult.noData
             resultLoop: for result in results {
                 switch result {
@@ -28,6 +30,10 @@ import Foundation
                 }
             }
             completion(combinedResult)
+            guard let strongSelf = self else {
+                return
+            }
+            strongSelf.delegate?.workerControllerDidEnd(strongSelf, workWithIdentifier: identifier)
         }
     }
 }

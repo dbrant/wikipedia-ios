@@ -2,7 +2,7 @@ import UIKit
 import NotificationCenter
 import WMF
 
-class WMFTodayContinueReadingWidgetViewController: UIViewController, NCWidgetProviding {
+class WMFTodayContinueReadingWidgetViewController: ExtensionViewController, NCWidgetProviding {
     @IBOutlet weak var imageView: UIImageView!
 
     @IBOutlet weak var daysAgoView: UIView!
@@ -18,19 +18,23 @@ class WMFTodayContinueReadingWidgetViewController: UIViewController, NCWidgetPro
     @IBOutlet var titleLabelTrailingConstraint: NSLayoutConstraint!
     
     var articleURL: URL?
-
-    var theme: Theme = .widget
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
+    
+    override func apply(theme: Theme) {
+        super.apply(theme: theme)
+        guard viewIfLoaded != nil else {
+            return
+        }
         titleLabel.textColor = theme.colors.primaryText
         textLabel.textColor = theme.colors.secondaryText
         emptyTitleLabel.textColor = theme.colors.primaryText
         emptyDescriptionLabel.textColor = theme.colors.secondaryText
         daysAgoLabel.textColor = theme.colors.overlayText
         daysAgoView.backgroundColor = theme.colors.overlayBackground
-
+    }
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
         imageView.accessibilityIgnoresInvertColors = true
         
         emptyDescriptionLabel.text = WMFLocalizedString("continue-reading-empty-title", value:"No recently read articles", comment: "No recently read articles")
@@ -39,6 +43,8 @@ class WMFTodayContinueReadingWidgetViewController: UIViewController, NCWidgetPro
         
         view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(self.handleTapGestureRecognizer(_:))))
     }
+    
+
     
     @objc func handleTapGestureRecognizer(_ recognizer: UITapGestureRecognizer) {
         switch recognizer.state {
@@ -85,15 +91,13 @@ class WMFTodayContinueReadingWidgetViewController: UIViewController, NCWidgetPro
     }
     
     func updateView() -> Bool {
-        guard let session = SessionSingleton.sharedInstance() else {
-            return false
-        }
+        let dataStore = MWKDataStore.shared()
         
         let article: WMFArticle
         
-        if let openArticleURL = UserDefaults.wmf.wmf_openArticleURL(), let openArticle = session.dataStore.historyList.entry(for: openArticleURL) {
+        if let openArticleURL = dataStore.viewContext.openArticleURL, let openArticle = dataStore.fetchArticle(with: openArticleURL) {
             article = openArticle
-        } else if let mostRecentHistoryEntry = session.dataStore.historyList.mostRecentEntry() {
+        } else if let mostRecentHistoryEntry = dataStore.viewContext.mostRecentlyReadArticle {
             article = mostRecentHistoryEntry
         } else {
             return false
@@ -126,7 +130,7 @@ class WMFTodayContinueReadingWidgetViewController: UIViewController, NCWidgetPro
             self.textLabel.text = nil
         }
         
-        if let date = UserDefaults.wmf.wmf_appResignActiveDate() {
+        if let date = article.viewedDate {
             self.daysAgoView.isHidden = false
             self.daysAgoLabel.text = (date as NSDate).wmf_localizedRelativeDateStringFromLocalDateToNow()
         } else {
@@ -158,14 +162,9 @@ class WMFTodayContinueReadingWidgetViewController: UIViewController, NCWidgetPro
         super.traitCollectionDidChange(previousTraitCollection)
         _ = updateView()
     }
-
+    
     @IBAction func continueReading(_ sender: AnyObject) {
-        let URL = articleURL as NSURL?
-        let URLToOpen = URL?.wmf_wikipediaScheme ?? NSUserActivity.wmf_baseURLForActivity(of: .explore)
-        
-        self.extensionContext?.open(URLToOpen)
+        openApp(with: articleURL)
     }
-
-
 }
 

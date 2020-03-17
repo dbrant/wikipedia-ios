@@ -2,7 +2,6 @@
 @import UserNotifications;
 @import WMF.NSUserActivity_WMFExtensions;
 @import WMF.NSFileManager_WMFGroup;
-#import "BITHockeyManager+WMFExtensions.h"
 #import "WMFAppViewController.h"
 #import "UIApplicationShortcutItem+WMFShortcutItem.h"
 #import "Wikipedia-Swift.h"
@@ -27,13 +26,12 @@ static NSTimeInterval const WMFBackgroundFetchInterval = 10800; // 3 Hours
      * @note This must be loaded before application launch so unit tests can run
      */
     NSString *defaultLanguage = [[NSLocale currentLocale] objectForKey:NSLocaleLanguageCode];
-    [[NSUserDefaults wmf] registerDefaults:@{
+    [[NSUserDefaults standardUserDefaults] registerDefaults:@{
         @"CurrentArticleDomain": defaultLanguage,
         @"Domain": defaultLanguage,
-        WMFZeroWarnWhenLeaving: @YES,
-        WMFZeroOnDialogShownOnce: @NO,
         @"LastHousekeepingDate": [NSDate date],
-        @"AccessSavedPagesMessageShown": @NO
+        @"AccessSavedPagesMessageShown": @NO,
+        @"WMFAutoSignTalkPageDiscussions": @YES
     }];
 }
 
@@ -69,14 +67,19 @@ static NSTimeInterval const WMFBackgroundFetchInterval = 10800; // 3 Hours
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     [application setMinimumBackgroundFetchInterval:WMFBackgroundFetchInterval];
 #if DEBUG
-    NSLog(@"\n\nSimulator documents directory:\n\t%@\n\n",
-          [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject]);
-    NSLog(@"\n\nSimulator container directory:\n\t%@\n\n",
+    // Use NSLog so we can break and copy/paste. DDLogDebug is async.
+    NSLog(@"\nSimulator container directory:\n\t%@\n",
           [[NSFileManager defaultManager] wmf_containerPath]);
 #endif
-    [NSUserDefaults wmf_migrateToWMFGroupUserDefaultsIfNecessary];
-    [[NSUserDefaults wmf] wmf_migrateFontSizeMultiplier];
-    [[BITHockeyManager sharedHockeyManager] wmf_setupAndStart];
+
+#if UI_TEST
+    if ([[NSUserDefaults standardUserDefaults] wmf_isFastlaneSnapshotInProgress]) {
+        [UIView setAnimationsEnabled:NO];
+    }
+#endif
+
+    [[NSUserDefaults standardUserDefaults] wmf_migrateFontSizeMultiplier];
+    NSUserDefaults.standardUserDefaults.shouldRestoreNavigationStackOnResume = [self shouldRestoreNavigationStackOnResumeAfterBecomingActive:[NSDate date]];
 
     self.appNeedsResume = YES;
     WMFAppViewController *vc = [[WMFAppViewController alloc] init];
@@ -95,7 +98,6 @@ static NSTimeInterval const WMFBackgroundFetchInterval = 10800; // 3 Hours
 
 - (void)applicationDidBecomeActive:(UIApplication *)application {
     // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
-    [[NSUserDefaults wmf] wmf_setAppBecomeActiveDate:[NSDate date]];
     [self resumeAppIfNecessary];
 }
 
@@ -112,6 +114,21 @@ static NSTimeInterval const WMFBackgroundFetchInterval = 10800; // 3 Hours
     }
 }
 
+- (BOOL)shouldRestoreNavigationStackOnResumeAfterBecomingActive:(NSDate *)becomeActiveDate {
+    BOOL shouldOpenAppOnSearchTab = [NSUserDefaults standardUserDefaults].wmf_openAppOnSearchTab;
+    if (shouldOpenAppOnSearchTab) {
+        return NO;
+    }
+
+    NSDate *resignActiveDate = [[NSUserDefaults standardUserDefaults] wmf_appResignActiveDate];
+    if (!resignActiveDate) {
+        return NO;
+    }
+    NSDate *cutoffDate = [[NSCalendar wmf_utcGregorianCalendar] nextDateAfterDate:resignActiveDate matchingHour:5 minute:0 second:0 options:NSCalendarMatchStrictly];
+    BOOL isBeforeCutoffDate = [becomeActiveDate compare:cutoffDate] == NSOrderedAscending;
+    return isBeforeCutoffDate;
+}
+
 #pragma mark - NSUserActivity Handling
 
 - (BOOL)application:(UIApplication *)application willContinueUserActivityWithType:(NSString *)userActivityType {
@@ -119,10 +136,16 @@ static NSTimeInterval const WMFBackgroundFetchInterval = 10800; // 3 Hours
 }
 
 - (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)userActivity restorationHandler:(void (^)(NSArray<id<UIUserActivityRestoring>> *__nullable restorableObjects))restorationHandler {
+    [self.appViewController showSplashViewIfNotShowing];
+
     BOOL result = [self.appViewController processUserActivity:userActivity
                                                      animated:NO
                                                    completion:^{
-                                                       [self resumeAppIfNecessary];
+                                                       if (self.appNeedsResume) {
+                                                           [self resumeAppIfNecessary];
+                                                       } else {
+                                                           [self.appViewController hideSplashViewAnimated:YES];
+                                                       }
                                                    }];
     return result;
 }
@@ -142,10 +165,15 @@ static NSTimeInterval const WMFBackgroundFetchInterval = 10800; // 3 Hours
             options:(NSDictionary<NSString *, id> *)options {
     NSUserActivity *activity = [NSUserActivity wmf_activityForWikipediaScheme:url] ?: [NSUserActivity wmf_activityForURL:url];
     if (activity) {
+        [self.appViewController showSplashViewIfNotShowing];
         BOOL result = [self.appViewController processUserActivity:activity
                                                          animated:NO
                                                        completion:^{
-                                                           [self resumeAppIfNecessary];
+                                                           if (self.appNeedsResume) {
+                                                               [self resumeAppIfNecessary];
+                                                           } else {
+                                                               [self.appViewController hideSplashViewAnimated:YES];
+                                                           }
                                                        }];
         return result;
     } else {
@@ -157,7 +185,7 @@ static NSTimeInterval const WMFBackgroundFetchInterval = 10800; // 3 Hours
 - (void)applicationWillResignActive:(UIApplication *)application {
     // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
     // Use this method to pause ongoing tasks, disable timers, and throttle down OpenGL ES frame rates. Games should use this method to pause the game.
-    [[NSUserDefaults wmf] wmf_setAppResignActiveDate:[NSDate date]];
+    [[NSUserDefaults standardUserDefaults] wmf_setAppResignActiveDate:[NSDate date]];
 }
 
 - (void)applicationDidEnterBackground:(UIApplication *)application {

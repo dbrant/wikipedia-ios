@@ -64,7 +64,7 @@ class NotificationSettingsViewController: SubSettingsViewController {
         updatedSections.append(infoSection)
         
         let notificationSettingsItems: [NotificationSettingsItem] = [NotificationSettingsSwitchItem(title: WMFLocalizedString("settings-notifications-trending", value:"Trending current events", comment:"Title for the setting for trending notifications"), switchChecker: { () -> Bool in
-            return UserDefaults.wmf.wmf_inTheNewsNotificationsEnabled()
+            return UserDefaults.standard.wmf_inTheNewsNotificationsEnabled()
             }, switchAction: { [weak self] (isOn) in
                 //This (and everything else that references UNUserNotificationCenter in this class) should be moved into WMFNotificationsController
                 if (isOn) {
@@ -76,7 +76,7 @@ class NotificationSettingsViewController: SubSettingsViewController {
                 } else {
                     UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
                 }
-                UserDefaults.wmf.wmf_setInTheNewsNotificationsEnabled(isOn)
+                UserDefaults.standard.wmf_setInTheNewsNotificationsEnabled(isOn)
         })]
         let notificationSettingsSection = NotificationSettingsSection(headerTitle: WMFLocalizedString("settings-notifications-push-notifications", value:"Push notifications", comment:"A title for a list of Push notifications"), items: notificationSettingsItems)
         
@@ -156,7 +156,7 @@ class NotificationSettingsViewController: SubSettingsViewController {
         }
     }
 
-    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+    @objc func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         guard let header = WMFTableHeaderFooterLabelView.wmf_viewFromClassNib() else {
             return nil
         }
@@ -167,15 +167,15 @@ class NotificationSettingsViewController: SubSettingsViewController {
         return header;
     }
     
-    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+    @objc func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
         guard let header = WMFTableHeaderFooterLabelView.wmf_viewFromClassNib() else {
             return 0
         }
         header.text = sections[section].headerTitle
-        return header.height(withExpectedWidth: self.view.frame.width)
+        return header.height(withExpectedWidth: self.view.frame.width - tableView.separatorInset.left - tableView.separatorInset.right)
     }
     
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    @objc func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         guard let item = sections[indexPath.section].items[indexPath.item] as? NotificationSettingsButtonItem else {
             return
         }
@@ -185,7 +185,7 @@ class NotificationSettingsViewController: SubSettingsViewController {
     }
     
     
-    func tableView(_ tableView: UITableView, shouldHighlightRowAt indexPath: IndexPath) -> Bool {
+    @objc func tableView(_ tableView: UITableView, shouldHighlightRowAt indexPath: IndexPath) -> Bool {
         return sections[indexPath.section].items[indexPath.item] as? NotificationSettingsSwitchItem == nil
     }
     
@@ -194,6 +194,7 @@ class NotificationSettingsViewController: SubSettingsViewController {
         guard viewIfLoaded != nil else {
             return
         }
+        view.backgroundColor = theme.colors.baseBackground
         tableView.backgroundColor = theme.colors.baseBackground
         tableView.reloadData()
     }

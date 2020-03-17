@@ -21,9 +21,9 @@ class HistoryViewController: ArticleFetchedResultsViewController {
         
         title = CommonStrings.historyTabTitle
         
-        deleteAllButtonText = WMFLocalizedString("history-clear-all", value: "Clear", comment: "Text of the button shown at the top of history which deletes all history\n{{Identical|Clear}}")
+        deleteAllButtonText = WMFLocalizedString("history-clear-all", value: "Clear", comment: "Text of the button shown at the top of history which deletes all history {{Identical|Clear}}")
         deleteAllConfirmationText =  WMFLocalizedString("history-clear-confirmation-heading", value: "Are you sure you want to delete all your recent items?", comment: "Heading text of delete all confirmation dialog")
-        deleteAllCancelText = WMFLocalizedString("history-clear-cancel", value: "Cancel", comment: "Button text for cancelling delete all action\n{{Identical|Cancel}}")
+        deleteAllCancelText = WMFLocalizedString("history-clear-cancel", value: "Cancel", comment: "Button text for cancelling delete all action {{Identical|Cancel}}")
         deleteAllText = WMFLocalizedString("history-clear-delete-all", value: "Yes, delete all", comment: "Button text for confirming delete all action")
         isDeleteAllVisible = true
     }
@@ -44,11 +44,11 @@ class HistoryViewController: ArticleFetchedResultsViewController {
     }
     
     override func deleteAll() {
-        dataStore.historyList.removeAllEntries()
-    }
-    
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
+        do {
+            try dataStore.viewContext.clearReadHistory()
+        } catch let error {
+            showError(error)
+        }
     }
     
     override var headerStyle: ColumnarCollectionViewController.HeaderStyle {
@@ -73,7 +73,7 @@ class HistoryViewController: ArticleFetchedResultsViewController {
         header.apply(theme: theme)
         header.layoutMargins = layout.itemLayoutMargins
     }
-
+    
     override func collectionViewUpdater<T>(_ updater: CollectionViewUpdater<T>, didUpdate collectionView: UICollectionView) {
         super.collectionViewUpdater(updater, didUpdate: collectionView)
         updateVisibleHeaders()
@@ -91,10 +91,4 @@ class HistoryViewController: ArticleFetchedResultsViewController {
     override var eventLoggingCategory: EventLoggingCategory {
         return .history
     }
-}
-
-// MARK: WMFSearchButtonProviding
-
-extension HistoryViewController: WMFSearchButtonProviding {
-
 }

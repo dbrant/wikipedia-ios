@@ -1,6 +1,6 @@
 #import <WMF/NSURLComponents+WMFLinkParsing.h>
-#import <WMF/NSString+WMFPageUtilities.h>
 #import <WMF/NSCharacterSet+WMFLinkParsing.h>
+#import <WMF/WMF-Swift.h>
 
 @implementation NSURLComponents (WMFLinkParsing)
 
@@ -68,7 +68,7 @@
 }
 
 - (void)setWmf_titleWithUnderscores:(NSString *_Nullable)titleWithUnderscores {
-    NSString *path = [titleWithUnderscores stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet wmf_URLPathComponentAllowedCharacterSet]];
+    NSString *path = [titleWithUnderscores stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet wmf_URLArticleTitlePathComponentAllowedCharacterSet]];
     if (path != nil && path.length > 0) {
         NSArray *pathComponents = @[@"/wiki/", path];
         self.percentEncodedPath = [NSString pathWithComponents:pathComponents];

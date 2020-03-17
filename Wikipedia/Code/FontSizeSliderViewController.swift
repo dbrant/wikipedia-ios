@@ -69,8 +69,8 @@ class FontSizeSliderViewController: UIViewController {
     }
     
     func indexOfCurrentFontSize() -> Int {
-        if let fontSize = UserDefaults.wmf.wmf_articleFontSizeMultiplier() as? Int, let multiplier = WMFFontSizeMultiplier(rawValue: fontSize) {
-            return fontSizeMultipliers.index(of: multiplier)!
+        if let fontSize = UserDefaults.standard.wmf_articleFontSizeMultiplier() as? Int, let multiplier = WMFFontSizeMultiplier(rawValue: fontSize) {
+            return fontSizeMultipliers.firstIndex(of: multiplier)!
         }
         return fontSizeMultipliers.count / 2
     }

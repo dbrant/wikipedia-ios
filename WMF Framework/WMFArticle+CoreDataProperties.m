@@ -14,6 +14,7 @@
 @dynamic imageURLString;
 @dynamic imageWidth;
 @dynamic isDownloaded;
+@dynamic isConversionFromMobileViewNeeded;
 @dynamic isExcludedFromFeed;
 @dynamic key;
 @dynamic latitude;
@@ -35,5 +36,10 @@
 @dynamic readingLists;
 @dynamic previewReadingLists;
 @dynamic errorCodeNumber;
+@dynamic ns;
+@dynamic pageID;
+@dynamic lastModifiedDate;
+@dynamic downloadRetryDate;
+@dynamic downloadAttemptCount;
 
 @end

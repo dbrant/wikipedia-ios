@@ -1,5 +1,4 @@
 #import <WMF/WMFRandomContentSource.h>
-#import <WMF/WMFRandomArticleFetcher.h>
 #import <WMF/NSCalendar+WMFCommonCalendars.h>
 #import <WMF/WMFContentGroup+Extensions.h>
 #import <WMF/WMFTaskGroup.h>
@@ -7,6 +6,7 @@
 #import <WMF/MWKSearchResult.h>
 #import <WMF/NSURL+WMFLinkParsing.h>
 #import <WMF/WMFArticle+Extensions.h>
+#import <WMF/WMF-Swift.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -67,44 +67,43 @@ NS_ASSUME_NONNULL_BEGIN
         }
 
         @weakify(self)
-            [self.fetcher fetchRandomArticleWithSiteURL:self.siteURL
-                failure:^(NSError *error) {
+        [self.fetcher fetchRandomArticleWithSiteURL:self.siteURL completion:^(NSError * _Nullable error, NSURL * _Nullable articleURL, WMFArticleSummary * _Nullable summary) {
+            if (error || !articleURL) {
+                if (completion) {
+                    completion();
+                }
+            } else {
+                @strongify(self);
+                if (!self) {
                     if (completion) {
                         completion();
                     }
+                    return;
                 }
-                success:^(MWKSearchResult *result) {
-                    @strongify(self);
-                    if (!self) {
-                        if (completion) {
-                            completion();
-                        }
-                        return;
-                    }
 
-                    NSURL *articleURL = [result articleURLForSiteURL:siteURL];
-                    if (!articleURL) {
-                        if (completion) {
-                            completion();
-                        }
-                        return;
+                if (!articleURL) {
+                    if (completion) {
+                        completion();
                     }
-                    [moc performBlock:^{
-                        [moc fetchOrCreateGroupForURL:contentGroupURL
-                                               ofKind:WMFContentGroupKindRandom
-                                              forDate:date
-                                          withSiteURL:siteURL
-                                    associatedContent:nil
-                                   customizationBlock:^(WMFContentGroup *_Nonnull group) {
-                                       group.contentPreview = articleURL;
-                                   }];
-                        [moc fetchOrCreateArticleWithURL:articleURL updatedWithSearchResult:result];
-                        if (completion) {
-                            completion();
-                        }
-                    }];
-
+                    return;
+                }
+                [moc performBlock:^{
+                    [moc fetchOrCreateGroupForURL:contentGroupURL
+                                           ofKind:WMFContentGroupKindRandom
+                                          forDate:date
+                                      withSiteURL:siteURL
+                                associatedContent:nil
+                               customizationBlock:^(WMFContentGroup *_Nonnull group) {
+                                   group.contentPreview = articleURL;
+                               }];
+                    WMFArticle *article = [moc fetchOrCreateArticleWithURL:articleURL updatedWithSearchResult:nil];
+                    [article updateWithSummary:summary];
+                    if (completion) {
+                        completion();
+                    }
                 }];
+            }
+        }];
     }];
 }
 

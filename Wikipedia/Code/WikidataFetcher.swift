@@ -2,48 +2,23 @@ import Foundation
 import WMF
 import MapKit
 
-enum WikidataFetcherError: Error {
-    case genericError
-}
-
-class WikidataFetcher: NSObject {
+class WikidataFetcher: Fetcher {
     func wikidata(forArticleURL articleURL: URL, failure: @escaping (Error) -> Void, success: @escaping ([String: Any]) -> Void) {
         guard let title = articleURL.wmf_title,
             let language = articleURL.wmf_language else {
-                failure(WikidataFetcherError.genericError)
+                failure(RequestError.invalidParameters)
                 return
         }
         
-        var components = URLComponents()
-        components.host = WikidataAPI.host
-        components.path = WikidataAPI.path
-        components.scheme = WikidataAPI.scheme
-        let actionQueryItem = URLQueryItem(name: "action", value: "wbgetentities")
-        let titlesQueryItem = URLQueryItem(name: "titles", value: title)
-        let sitesQueryItem = URLQueryItem(name: "sites", value: "\(language)wiki")
-        let formatQueryItem = URLQueryItem(name: "format", value: "json")
-        components.queryItems = [actionQueryItem, titlesQueryItem, sitesQueryItem, formatQueryItem]
-        
-        guard let requestURL = components.url else {
-            failure(WikidataFetcherError.genericError)
-            return
-        }
-    
-        Session.urlSession.dataTask(with: requestURL, completionHandler: { (data, response, error) in
-            guard let data = data else {
-                failure(error ?? WikidataFetcherError.genericError)
+        let queryParameters = ["action": "wbgetentities", "title": title, "sites": "\(language)wiki", "format": "json"]
+        let components = configuration.wikidataAPIURLComponents(with: queryParameters)
+        session.getJSONDictionary(from: components.url, ignoreCache: false) { (jsonObject, response, error) in
+            guard let jsonObject = jsonObject else {
+                failure(RequestError.unexpectedResponse)
                 return
             }
-            do {
-                guard let jsonObject = try JSONSerialization.jsonObject(with: data, options: .allowFragments) as? [String: Any] else {
-                    failure(WikidataFetcherError.genericError)
-                    return
-                }
-                success(jsonObject)
-            } catch let parseError {
-                failure(parseError)
-            }
-        }).resume()
+            success(jsonObject)
+        }
     }
     
     func wikidataBoundingRegion(forArticleURL articleURL: URL, failure: @escaping (Error) -> Void, success: @escaping (MKCoordinateRegion) -> Void) {
@@ -51,7 +26,7 @@ class WikidataFetcher: NSObject {
             guard let entities = jsonObject["entities"] as? [String: Any],
                 let entity = entities.values.first as? [String: Any],
                 let claims = entity["claims"] as? [String: Any] else {
-                failure(WikidataFetcherError.genericError)
+                failure(RequestError.unexpectedResponse)
                 return
             }
             
@@ -81,7 +56,7 @@ class WikidataFetcher: NSObject {
             })
             
             guard coordinates.count > 3 else {
-                failure(WikidataFetcherError.genericError)
+                failure(RequestError.unexpectedResponse)
                 return
             }
 

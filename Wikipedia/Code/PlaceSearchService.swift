@@ -25,7 +25,7 @@ class PlaceSearchService
 {
     public var dataStore: MWKDataStore!
     private let locationSearchFetcher = WMFLocationSearchFetcher()
-    private let wikidataFetcher = WikidataFetcher()
+    private let wikidataFetcher = WikidataFetcher(session: Session.shared, configuration: Configuration.current)
     
     init(dataStore: MWKDataStore) {
         self.dataStore = dataStore
@@ -54,6 +54,7 @@ class PlaceSearchService
         let sortStyle = search.sortStyle
 
         let done = {
+            let completionResult: PlaceSearchResult
             if var actualResult = result {
                 if let searchResult = search.searchResult {
                     var foundResult = false
@@ -69,9 +70,12 @@ class PlaceSearchService
                         actualResult = PlaceSearchResult(locationResults: locationResults, fetchRequest: actualResult.fetchRequest)
                     }
                 }
-                completion(actualResult)
+                completionResult = actualResult
             } else {
-                completion(PlaceSearchResult(error: nil))
+                completionResult = PlaceSearchResult(error: nil)
+            }
+            DispatchQueue.main.async {
+                completion(completionResult)
             }
         }
         
@@ -102,7 +106,6 @@ class PlaceSearchService
                     result = PlaceSearchResult(locationResults: searchResults.results, fetchRequest: nil)
                     done()
                 }) { (error) in
-
                     result = PlaceSearchResult(error: error)
                     done()
                 }
@@ -131,17 +134,15 @@ class PlaceSearchService
                 savedPagesWithoutLocationRequest.predicate = NSPredicate(format: "savedDate != NULL && signedQuadKey == NULL")
                 savedPagesWithoutLocationRequest.sortDescriptors = [NSSortDescriptor(keyPath: \WMFArticle.savedDate, ascending: false)]
                 let savedPagesWithoutLocation = try moc.fetch(savedPagesWithoutLocationRequest)
-                guard savedPagesWithoutLocation.count > 0 else {
+                guard !savedPagesWithoutLocation.isEmpty else {
                     done()
                     return
                 }
-                let urls = savedPagesWithoutLocation.compactMap({ (article) -> URL? in
-                    return article.url
+                let keys = savedPagesWithoutLocation.compactMap({ (article) -> String? in
+                    return article.key
                 })
-                // TODO: ARM: I don't understand this --------------------V
-                //var allArticlesWithLocation = savedPagesWithLocation // this should be re-fetched
-                dataStore.viewContext.wmf_updateOrCreateArticleSummariesForArticles(withURLs: urls) { (articles) in
-                    //allArticlesWithLocation.append(contentsOf: articles)
+                // Fetch summaries from the server and update WMFArticle objects
+                dataStore.articleSummaryController.updateOrCreateArticleSummariesForArticles(withKeys: keys) { (articles, _) in
                     done()
                 }
                 return

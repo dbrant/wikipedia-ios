@@ -1,61 +1,113 @@
 #import "WikiTextSectionUploader.h"
 #import "NSObject+WMFExtras.h"
-@import AFNetworking;
 @import WMF;
-
-@interface WikiTextSectionUploader ()
-
-@property (strong, nonatomic) NSString *wikiText;
-@property (strong, nonatomic) NSURL *articleURL;
-@property (strong, nonatomic) NSString *section;
-@property (strong, nonatomic) NSString *summary;
-@property (strong, nonatomic) NSString *captchaId;
-@property (strong, nonatomic) NSString *captchaWord;
-@property (strong, nonatomic) NSString *token;
-
-@end
 
 @implementation WikiTextSectionUploader
 
-- (instancetype)initAndUploadWikiText:(NSString *)wikiText
-                        forArticleURL:(NSURL *)articleURL
-                              section:(NSString *)section
-                              summary:(NSString *)summary
-                            captchaId:(NSString *)captchaId
-                          captchaWord:(NSString *)captchaWord
-                                token:(NSString *)token
-                          withManager:(AFHTTPSessionManager *)manager
-                   thenNotifyDelegate:(id<FetchFinishedDelegate>)delegate {
-    NSParameterAssert(articleURL.wmf_title);
-    self = [super init];
-    if (self) {
-        self.wikiText = wikiText ? wikiText : @"";
-        self.articleURL = articleURL;
-        self.section = section ? section : @"";
-        self.summary = summary ? summary : @"";
-        self.captchaId = captchaId ? captchaId : @"";
-        self.captchaWord = captchaWord ? captchaWord : @"";
-        self.token = token ? token : @"";
-
-        self.fetchFinishedDelegate = delegate;
-        [self uploadWithManager:manager];
+- (void)addSectionWithSummary:(NSString *)summary
+                text:(NSString *)text
+         forArticleURL:(NSURL *)articleURL
+            completion:(void (^)(NSDictionary * _Nullable result, NSError * _Nullable error))completion {
+    
+    NSString *title = articleURL.wmf_title;
+    if (!title) {
+        completion(nil, [WMFFetcher invalidParametersError]);
+        return;
     }
-    return self;
+    
+    NSMutableDictionary *params =
+    @{
+      @"action": @"edit",
+      @"text": text,
+      @"summary": summary,
+      @"section": @"new",
+      @"title": articleURL.wmf_title,
+      @"format": @"json"
+      }
+    .mutableCopy;
+    
+    [self updateWithArticleURL:articleURL parameters:params captchaWord:nil completion:completion];
 }
 
-- (void)uploadWithManager:(AFHTTPSessionManager *)manager {
-    NSURL *url = [[SessionSingleton sharedInstance] urlForLanguage:self.articleURL.wmf_language];
+- (void)appendToSection:(NSString *)section
+                         text:(NSString *)text
+                forArticleURL:(NSURL *)articleURL
+                   completion:(void (^)(NSDictionary * _Nullable result, NSError * _Nullable error))completion {
+    
+    NSString *title = articleURL.wmf_title;
+    if (!title) {
+        completion(nil, [WMFFetcher invalidParametersError]);
+        return;
+    }
+    
+    NSMutableDictionary *params =
+    @{
+      @"action": @"edit",
+      @"appendtext": text,
+      @"section": section,
+      @"title": articleURL.wmf_title,
+      @"format": @"json"
+      }
+    .mutableCopy;
+    
+    [self updateWithArticleURL:articleURL parameters:params captchaWord:nil completion:completion];
+}
 
-    NSDictionary *params = [self getParams];
+- (void)uploadWikiText:(nullable NSString *)wikiText
+         forArticleURL:(NSURL *)articleURL
+               section:(NSString *)section
+               summary:(nullable NSString *)summary
+           isMinorEdit:(BOOL)isMinorEdit
+        addToWatchlist:(BOOL)addToWatchlist
+             captchaId:(nullable NSString *)captchaId
+           captchaWord:(nullable NSString *)captchaWord
+            completion:(void (^)(NSDictionary * _Nullable result, NSError * _Nullable error))completion {
+    
+    wikiText = wikiText ? wikiText : @"";
+    section = section ? section : @"";
+    summary = summary ? summary : @"";
+    NSString *title = articleURL.wmf_title;
+    if (!title) {
+        completion(nil, [WMFFetcher invalidParametersError]);
+        return;
+    }
+    
+    NSMutableDictionary *params =
+    @{
+      @"action": @"edit",
+      @"text": wikiText,
+      @"summary": summary,
+      @"section": section,
+      @"title": articleURL.wmf_title,
+      @"format": @"json",
+      }
+    .mutableCopy;
 
-    [[MWNetworkActivityIndicatorManager sharedManager] push];
+    if (isMinorEdit) {
+        params[@"minor"] = @"1";
+    }
 
-    [manager POST:url.absoluteString
-        parameters:params
-        progress:NULL
-        success:^(NSURLSessionDataTask *operation, id responseObject) {
+    if (addToWatchlist) {
+        params[@"watchlist"] = @"watch";
+    }
+
+    if (captchaWord && captchaId) {
+        params[@"captchaid"] = captchaId;
+        params[@"captchaword"] = captchaWord;
+    }
+    
+    [self updateWithArticleURL:articleURL parameters:params captchaWord:captchaWord completion:completion];
+}
+
+- (void)updateWithArticleURL: (NSURL *)articleURL parameters: (NSDictionary<NSString *, NSString *> *)parameters captchaWord: (nullable NSString *)captchaWord completion:(void (^)(NSDictionary * _Nullable result, NSError * _Nullable error))completion {
+    
+    [self performMediaWikiAPIPOSTWithCSRFTokenForURL:articleURL withBodyParameters:parameters completionHandler:^(NSDictionary<NSString *,id> * _Nullable responseObject, NSHTTPURLResponse * _Nullable response, NSError * _Nullable networkError) {
+
+        if (networkError) {
+            completion(nil, networkError);
+            return;
+        }
             //NSLog(@"JSON: %@", responseObject);
-            [[MWNetworkActivityIndicatorManager sharedManager] pop];
 
             // Fake out an error if non-dictionary response received.
             if (![responseObject isDict]) {
@@ -70,7 +122,7 @@
                 NSMutableDictionary *errorDict = [responseObject[@"error"] mutableCopy];
                 errorDict[NSLocalizedDescriptionKey] = errorDict[@"info"];
                 error = [NSError errorWithDomain:@"WikiText Uploader"
-                                            code:WIKITEXT_UPLOAD_ERROR_SERVER
+                                            code:WikiTextSectionUploaderErrorTypeServer
                                         userInfo:errorDict];
             }
 
@@ -82,14 +134,14 @@
                 errorDict[NSLocalizedDescriptionKey] = WMFLocalizedStringWithDefaultValue(@"wikitext-upload-result-unknown", nil, nil, @"Unable to determine wikitext upload result.", @"Alert text shown when the result of saving section wikitext changes is unknown");
 
                 // Set error condition so dependent ops don't even start and so the errorBlock below will fire.
-                error = [NSError errorWithDomain:@"Upload Wikitext Op" code:WIKITEXT_UPLOAD_ERROR_UNKNOWN userInfo:errorDict];
+                error = [NSError errorWithDomain:@"Upload Wikitext Op" code:WikiTextSectionUploaderErrorTypeUnknown userInfo:errorDict];
             }
 
             if (!error && result && [result isEqualToString:@"Failure"]) {
                 if (responseObject[@"edit"][@"captcha"]) {
                     NSMutableDictionary *errorDict = [@{} mutableCopy];
 
-                    errorDict[NSLocalizedDescriptionKey] = (self.captchaWord && (self.captchaWord.length > 0)) ? WMFLocalizedStringWithDefaultValue(@"wikitext-upload-captcha-error", nil, nil, @"CAPTCHA verification error.", @"Alert text shown when section wikitext upload captcha fails")
+                    errorDict[NSLocalizedDescriptionKey] = (captchaWord && (captchaWord.length > 0)) ? WMFLocalizedStringWithDefaultValue(@"wikitext-upload-captcha-error", nil, nil, @"CAPTCHA verification error.", @"Alert text shown when section wikitext upload captcha fails")
                                                                                                                : WMFLocalizedStringWithDefaultValue(@"wikitext-upload-captcha-needed", nil, nil, @"Need CAPTCHA verification.", @"Alert text shown when section wikitext upload captcha is required");
 
                     // Make the capcha id and url available from the error.
@@ -97,23 +149,23 @@
                     errorDict[@"captchaUrl"] = responseObject[@"edit"][@"captcha"][@"url"];
 
                     // Set error condition so dependent ops don't even start and so the errorBlock below will fire.
-                    error = [NSError errorWithDomain:@"Upload Wikitext Op" code:WIKITEXT_UPLOAD_ERROR_NEEDS_CAPTCHA userInfo:errorDict];
+                    error = [NSError errorWithDomain:@"Upload Wikitext Op" code:WikiTextSectionUploaderErrorTypeNeedsCaptcha userInfo:errorDict];
                 } else if (responseObject[@"edit"][@"code"]) {
                     NSString *abuseFilterCode = responseObject[@"edit"][@"code"];
-                    WikiTextSectionUploaderErrors errorType = WIKITEXT_UPLOAD_ERROR_UNKNOWN;
+                    WikiTextSectionUploaderErrorType errorType = WikiTextSectionUploaderErrorTypeUnknown;
 
                     if ([abuseFilterCode hasPrefix:@"abusefilter-warning"]) {
-                        errorType = WIKITEXT_UPLOAD_ERROR_ABUSEFILTER_WARNING;
+                        errorType = WikiTextSectionUploaderErrorTypeAbuseFilterWarning;
                     } else if ([abuseFilterCode hasPrefix:@"abusefilter-disallowed"]) {
-                        errorType = WIKITEXT_UPLOAD_ERROR_ABUSEFILTER_DISALLOWED;
+                        errorType = WikiTextSectionUploaderErrorTypeAbuseFilterDisallowed;
                     } else if ([abuseFilterCode hasPrefix:@"abusefilter"]) {
-                        errorType = WIKITEXT_UPLOAD_ERROR_ABUSEFILTER_OTHER;
+                        errorType = WikiTextSectionUploaderErrorTypeAbuseFilterOther;
                     }
 
                     switch (errorType) {
-                        case WIKITEXT_UPLOAD_ERROR_ABUSEFILTER_WARNING:
-                        case WIKITEXT_UPLOAD_ERROR_ABUSEFILTER_DISALLOWED:
-                        case WIKITEXT_UPLOAD_ERROR_ABUSEFILTER_OTHER: {
+                        case WikiTextSectionUploaderErrorTypeAbuseFilterWarning:
+                        case WikiTextSectionUploaderErrorTypeAbuseFilterDisallowed:
+                        case WikiTextSectionUploaderErrorTypeAbuseFilterOther: {
                             NSMutableDictionary *errorDict = [@{} mutableCopy];
 
                             errorDict[NSLocalizedDescriptionKey] = responseObject[@"edit"][@"info"];
@@ -132,39 +184,7 @@
                 }
             }
 
-            [self finishWithError:error
-                      fetchedData:resultDict];
-        }
-        failure:^(NSURLSessionDataTask *operation, NSError *error) {
-
-            [[MWNetworkActivityIndicatorManager sharedManager] pop];
-
-            [self finishWithError:error
-                      fetchedData:nil];
-        }];
+        completion(resultDict, error);
+    }];
 }
-
-- (NSMutableDictionary *)getParams {
-    NSParameterAssert(self.token);
-    NSAssert(self.token.length > 0, @"Expected token length greater than zero");
-    NSMutableDictionary *params =
-        @{
-            @"action": @"edit",
-            @"token": self.token,
-            @"text": self.wikiText,
-            @"summary": self.summary,
-            @"section": self.section,
-            @"title": self.articleURL.wmf_title,
-            @"format": @"json"
-        }
-            .mutableCopy;
-
-    if (self.captchaWord) {
-        params[@"captchaid"] = self.captchaId;
-        params[@"captchaword"] = self.captchaWord;
-    }
-
-    return params;
-}
-
 @end

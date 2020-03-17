@@ -1,6 +1,5 @@
 import UIKit
 
-@objc(WMFPageIssuesTableViewController)
 class PageIssuesTableViewController: UITableViewController {
     static let defaultViewCellReuseIdentifier = "org.wikimedia.default"
 
@@ -11,7 +10,7 @@ class PageIssuesTableViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        self.title = WMFLocalizedStringWithDefaultValue("page-issues", nil, nil, "Page issues", "Label for the button that shows the \"Page issues\" dialog, where information about the imperfections of the current page is provided (by displaying the warning/cleanup templates).\n{{Identical|Page issue}}")
+        self.title = WMFLocalizedString("page-issues", value: "Page issues", comment: "Label for the button that shows the \"Page issues\" dialog, where information about the imperfections of the current page is provided (by displaying the warning/cleanup templates). {{Identical|Page issue}}")
         
         self.tableView.estimatedRowHeight = 90.0
         self.tableView.rowHeight = UITableView.automaticDimension
@@ -43,7 +42,7 @@ class PageIssuesTableViewController: UITableViewController {
         cell.selectedBackgroundView = UIView()
         cell.selectedBackgroundView?.backgroundColor = self.theme.colors.midBackground
         cell.textLabel?.textColor = self.theme.colors.primaryText
-
+        
         return cell
     }
     

@@ -9,7 +9,7 @@
 		<key>mit</key>
 		<string>https://raw.githubusercontent.com/wikimedia/wikipedia-ios/develop/LICENSE.txt</string>
 		<key>tsg</key>
-		<string>http://specialistsguild.org</string>
+		<string>https://tsgteam.org</string>
 		<key>feedback</key>
 		<string>mailto:mobile-ios-wikipedia@wikimedia.org?subject=Feedback:$1</string>
 		<key>twn</key>
@@ -100,14 +100,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 		</dict>
 		<dict>
 			<key>Name</key>
-			<string>AFNetworking</string>
-			<key>Source URL</key>
-			<string>https://github.com/AFNetworking/AFNetworking</string>
-			<key>License Text</key>
-			<string>pod install</string>
-		</dict>
-		<dict>
-			<key>Name</key>
 			<string>CocoaPods</string>
 			<key>Source URL</key>
 			<string>https://github.com/CocoaPods/CocoaPods</string>
@@ -135,14 +127,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.</string>
 		</dict>
-		<dict>
-			<key>Name</key>
-			<string>HockeySDK</string>
-			<key>Source URL</key>
-			<string>https://github.com/bitstadium/HockeySDK-iOS.git</string>
-			<key>License Text</key>
-			<string>pod install</string>
-		</dict>
 	</array>
 	<key>contributors</key>
 	<array>
@@ -150,14 +134,17 @@ THE SOFTWARE.</string>
 		<string>Adam Baso</string>
 		<string>Alexander Claussen</string>
 		<string>Amir E. Aharoni</string>
+		<string>Ammar Abdulhamid</string>
 		<string>Anirudh S</string>
 		<string>André Costa</string>
 		<string>Anthony Borba</string>
 		<string>Antoine Musso</string>
+		<string>Alexey Karataev</string>
 		<string>Barbara Martina Rodeker</string>
 		<string>bart-kneepkens</string>
 		<string>Bernd Sitzmann</string>
 		<string>Boris Dušek</string>
+		<string>brett ohland</string>
 		<string>Brian Gerstle</string>
 		<string>Brion Vibber</string>
 		<string>Carolyn Li-Madeo</string>
@@ -168,8 +155,10 @@ THE SOFTWARE.</string>
 		<string>Dan Garry</string>
 		<string>Daniel McGlinchey</string>
 		<string>David Xia</string>
+		<string>Deepak Mantena</string>
 		<string>Dmitry Brant</string>
 		<string>Elena Tonkovidova</string>
+		<string>Ethan Holshouser</string>
 		<string>Gabicoware</string>
 		<string>Gianmarco Salerno</string>
 		<string>Hua Zhenyu</string>
@@ -187,6 +176,7 @@ THE SOFTWARE.</string>
 		<string>Kotaro Fujita</string>
 		<string>Kunal Mehta</string>
 		<string>Logan Keller</string>
+		<string>Luiggi Minaya Salcedo</string>
 		<string>MagikCow</string>
 		<string>Maryana Pinchuk</string>
 		<string>Max Semenik</string>
@@ -195,6 +185,7 @@ THE SOFTWARE.</string>
 		<string>Mikhail Popov</string>
 		<string>Moiz Syed</string>
 		<string>Monte Hurd</string>
+		<string>Morgan Davison</string>
 		<string>Mun May Tee</string>
 		<string>Natalia Harateh</string>
 		<string>negati-ve</string>
@@ -204,10 +195,13 @@ THE SOFTWARE.</string>
 		<string>Nirzar Pangarkar</string>
 		<string>Oliver Keyes</string>
 		<string>Ori Livneh</string>
+		<string>Pedro Vereza</string>
 		<string>Prayag Verma</string>
 		<string>Rita Ho</string>
 		<string>Rummana Yasmeen</string>
+		<string>Salman Jamil</string>
 		<string>Sam Symons</string>
+		<string>Scott Petit</string>
 		<string>Sean Villalta</string>
 		<string>Seshadri Mahalingam</string>
 		<string>Sherah Smith</string>
@@ -222,10 +216,14 @@ THE SOFTWARE.</string>
 		<string>Tim Johnsen</string>
 		<string>Timo Tijhof</string>
 		<string>Tomasz Finc</string>
+		<string>Toni Sevener</string>
 		<string>Vibha Bamba</string>
+		<string>Victor Barrera</string>
 		<string>Victor Peschenkov</string>
 		<string>waffleboot</string>
+		<string>Yongmin Hong</string>
 		<string>Yuvi Panda</string>
+		<string>Zoran Dori</string>
 	</array>
 </dict>
 </plist>

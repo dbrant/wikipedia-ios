@@ -8,6 +8,7 @@ class SearchLanguageButton: UnderlineButton {
     override func setup() {
         super.setup()
         titleLabel?.numberOfLines = 1
+        titleEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 5, right: 0)
     }
 }
 
@@ -32,7 +33,7 @@ class SearchLanguagesBarViewController: UIViewController, WMFPreferredLanguagesV
     
     @objc fileprivate(set) var currentlySelectedSearchLanguage: MWKLanguageLink? {
         get {
-            if let siteURL = UserDefaults.wmf.wmf_currentSearchLanguageDomain(), let selectedLanguage = MWKLanguageLinkController.sharedInstance().language(forSiteURL: siteURL) {
+            if let siteURL = UserDefaults.standard.wmf_currentSearchLanguageDomain(), let selectedLanguage = MWKLanguageLinkController.sharedInstance().language(forSiteURL: siteURL) {
                 return selectedLanguage
             } else {
                 
@@ -46,7 +47,7 @@ class SearchLanguagesBarViewController: UIViewController, WMFPreferredLanguagesV
             }
         }
         set {
-            UserDefaults.wmf.wmf_setCurrentSearchLanguageDomain(newValue?.siteURL())
+            UserDefaults.standard.wmf_setCurrentSearchLanguageDomain(newValue?.siteURL())
             delegate?.searchLanguagesBarViewController(self, didChangeCurrentlySelectedSearchLanguage: newValue!)
             updateLanguageBarLanguageButtons()
         }
@@ -54,28 +55,12 @@ class SearchLanguagesBarViewController: UIViewController, WMFPreferredLanguagesV
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        otherLanguagesButton?.setTitle(WMFLocalizedString("main-menu-title", value:"More", comment:"Title for menu of secondary items.\n{{Identical|More}}"), for: .normal)
+        otherLanguagesButton?.setTitle(WMFLocalizedString("main-menu-title", value:"More", comment:"Title for menu of secondary items. {{Identical|More}}"), for: .normal)
         otherLanguagesButton?.titleLabel?.font = UIFont.wmf_font(.subheadline)
         
-        NotificationCenter.default.addObserver(forName: NSNotification.Name.WMFAppLanguageDidChange, object: nil, queue: nil) { notification in
-            guard let langController = notification.object, let appLanguage = (langController as AnyObject).appLanguage else {
-                assertionFailure("Could not extract app language from WMFAppLanguageDidChangeNotification")
-                return
-            }
-            self.currentlySelectedSearchLanguage = appLanguage
-        }
+        NotificationCenter.default.addObserver(self, selector: #selector(appLanguageDidChange(_:)), name: NSNotification.Name.WMFAppLanguageDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(preferredLanguagesDidChange(_:)), name: NSNotification.Name.WMFPreferredLanguagesDidChange, object: nil)
         
-        NotificationCenter.default.addObserver(forName: NSNotification.Name.WMFPreferredLanguagesDidChange, object: nil, queue: nil) { _ in
-            if let selectedLang = self.currentlySelectedSearchLanguage {
-                // The selected lang won't be in languageBarLanguages() if the user has dragged it down so it's not in top 3 langs...
-                if(self.languageBarLanguages().index(of: selectedLang) == nil){
-                    // ...so select first lang if the selected lang has been moved down out of the top 3.
-                    self.currentlySelectedSearchLanguage = self.languageBarLanguages().first
-                    // Reminder: cannot use "reorderPreferredLanguage" for this (in "didUpdatePreferredLanguages:") because
-                    // that would undo the dragging the user just did and would also not work for changes made from settings.
-                }
-            }
-        }
         apply(theme: theme)
         view.wmf_configureSubviewsForDynamicType()
         
@@ -132,7 +117,7 @@ class SearchLanguagesBarViewController: UIViewController, WMFPreferredLanguagesV
             let button = languageButtons[index]
             button.setTitle(language.localizedName, for: .normal)
             if let selectedLanguage = currentlySelectedSearchLanguage {
-                button.isSelected = language.isEqual(to: selectedLanguage)
+                button.isSelected = language.languageCode == selectedLanguage.languageCode
             }else{
                 assertionFailure("selectedLanguage should have been set at this point")
                 button.isSelected = false
@@ -165,7 +150,7 @@ class SearchLanguagesBarViewController: UIViewController, WMFPreferredLanguagesV
     }
     
     @IBAction fileprivate func setCurrentlySelectedLanguageToButtonLanguage(withSender sender: SearchLanguageButton) {
-        guard let buttonIndex = languageButtons.index(of: sender), languageBarLanguages().indices.contains(buttonIndex) else {
+        guard let buttonIndex = languageButtons.firstIndex(of: sender), languageBarLanguages().indices.contains(buttonIndex) else {
             assertionFailure("Language button not found for language")
             return
         }
@@ -181,14 +166,34 @@ class SearchLanguagesBarViewController: UIViewController, WMFPreferredLanguagesV
         present(WMFThemeableNavigationController(rootViewController: languagesVC!, theme: self.theme), animated: true, completion: nil)
     }
     
-    func languagesController(_ controller: WMFLanguagesViewController!, didSelectLanguage language: MWKLanguageLink!) {
+    func languagesController(_ controller: WMFLanguagesViewController, didSelectLanguage language: MWKLanguageLink) {
         // If the selected language will not be displayed because we only display max 3 languages, move it to index 2
-        if(languageBarLanguages().index(of: language) == nil){
+        if(languageBarLanguages().firstIndex(of: language) == nil){
             MWKLanguageLinkController.sharedInstance().reorderPreferredLanguage(language, to: 2)
         }
         
         currentlySelectedSearchLanguage = language
         controller.dismiss(animated: true, completion: nil)
+    }
+    
+    @objc func appLanguageDidChange(_ notification: Notification) {
+        guard let langController = notification.object, let appLanguage = (langController as AnyObject).appLanguage else {
+            assertionFailure("Could not extract app language from WMFAppLanguageDidChangeNotification")
+            return
+        }
+        currentlySelectedSearchLanguage = appLanguage
+    }
+    
+    @objc func preferredLanguagesDidChange(_ notification: Notification) {
+        if let selectedLang = currentlySelectedSearchLanguage {
+            // The selected lang won't be in languageBarLanguages() if the user has dragged it down so it's not in top 3 langs...
+            if(languageBarLanguages().firstIndex(of: selectedLang) == nil){
+                // ...so select first lang if the selected lang has been moved down out of the top 3.
+                currentlySelectedSearchLanguage = languageBarLanguages().first
+                // Reminder: cannot use "reorderPreferredLanguage" for this (in "didUpdatePreferredLanguages:") because
+                // that would undo the dragging the user just did and would also not work for changes made from settings.
+            }
+        }
     }
     
     func apply(theme: Theme) {

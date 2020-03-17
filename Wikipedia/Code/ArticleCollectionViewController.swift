@@ -2,20 +2,15 @@ import UIKit
 
 @objc(WMFArticleCollectionViewControllerDelegate)
 protocol ArticleCollectionViewControllerDelegate: NSObjectProtocol {
-    func articleCollectionViewController(_ articleCollectionViewController: ArticleCollectionViewController, didSelectArticleWithURL: URL, at indexPath: IndexPath)
+    func articleCollectionViewController(_ articleCollectionViewController: ArticleCollectionViewController, didSelectArticleWith articleURL: URL, at indexPath: IndexPath)
 }
 
 @objc(WMFArticleCollectionViewController)
-class ArticleCollectionViewController: ColumnarCollectionViewController, ReadingListHintPresenter, EditableCollection, EventLoggingEventValuesProviding {
-    @objc var dataStore: MWKDataStore! {
-        didSet {
-            readingListHintController = ReadingListHintController(dataStore: dataStore, presenter: self)
-        }
-    }
+class ArticleCollectionViewController: ColumnarCollectionViewController, EditableCollection, EventLoggingEventValuesProviding {
+    @objc var dataStore: MWKDataStore!
     var cellLayoutEstimate: ColumnarCollectionViewLayoutHeightEstimate?
 
     var editController: CollectionViewEditController!
-    var readingListHintController: ReadingListHintController?
     
     @objc weak var delegate: ArticleCollectionViewControllerDelegate?
 
@@ -74,6 +69,12 @@ class ArticleCollectionViewController: ColumnarCollectionViewController, Reading
         guard let articleURL = articleURL(at: indexPath) else {
             return false
         }
+        guard
+            let ns = articleURL.namespace,
+            ns == .main
+        else {
+            return false
+        }
         return !dataStore.savedPageList.isSaved(articleURL)
     }
     
@@ -86,6 +87,12 @@ class ArticleCollectionViewController: ColumnarCollectionViewController, Reading
     
     open func canShare(at indexPath: IndexPath) -> Bool {
         return articleURL(at: indexPath) != nil
+    }
+
+    func pushUserTalkPage(title: String, siteURL: URL) {
+        let talkPageContainer = TalkPageContainerViewController.talkPageContainer(title: title, siteURL: siteURL, type: .user, dataStore: dataStore, theme: theme)
+        push(talkPageContainer, animated: true)
+        return
     }
     
     override func contentSizeCategoryDidChange(_ notification: Notification?) {
@@ -170,8 +177,10 @@ extension ArticleCollectionViewController {
             collectionView.deselectItem(at: indexPath, animated: true)
             return
         }
-        delegate?.articleCollectionViewController(self, didSelectArticleWithURL: articleURL, at: indexPath)
-        wmf_pushArticle(with: articleURL, dataStore: dataStore, theme: theme, animated: true)
+
+        delegate?.articleCollectionViewController(self, didSelectArticleWith: articleURL, at: indexPath)
+        
+        navigate(to: articleURL)
     }
     
     func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
@@ -195,23 +204,24 @@ extension ArticleCollectionViewController {
 
         previewedIndexPath = indexPath
 
-        let articleViewController = WMFArticleViewController(articleURL: articleURL, dataStore: dataStore, theme: self.theme)
-        articleViewController.articlePreviewingActionsDelegate = self
+        guard let articleViewController = ArticleViewController(articleURL: articleURL, dataStore: dataStore, theme: self.theme) else {
+            return nil
+        }
+        articleViewController.articlePreviewingDelegate = self
         articleViewController.wmf_addPeekableChildViewController(for: articleURL, dataStore: dataStore, theme: theme)
         return articleViewController
     }
     
     override func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
         viewControllerToCommit.wmf_removePeekableChildViewControllers()
-        wmf_push(viewControllerToCommit, animated: true)
+        push(viewControllerToCommit, animated: true)
     }
 }
 
 extension ArticleCollectionViewController: ActionDelegate {
     
-    func didPerformBatchEditToolbarAction(_ action: BatchEditToolbarAction) -> Bool {
+    func didPerformBatchEditToolbarAction(_ action: BatchEditToolbarAction, completion: @escaping (Bool) -> Void) {
         assert(false, "Subclassers should override this function")
-        return false
     }
     
     func willPerformAction(_ action: Action) -> Bool {
@@ -222,11 +232,15 @@ extension ArticleCollectionViewController: ActionDelegate {
             return self.editController.didPerformAction(action)
         }
         let alertController = ReadingListsAlertController()
-        let cancel = ReadingListsAlertActionType.cancel.action { self.editController.close() }
+        let cancel = ReadingListsAlertActionType.cancel.action()
         let delete = ReadingListsAlertActionType.unsave.action { let _ = self.editController.didPerformAction(action) }
-        return alertController.showAlert(presenter: self, for: [article], with: [cancel, delete], completion: nil) {
-            return self.editController.didPerformAction(action)
+        let actions = [cancel, delete]
+        alertController.showAlertIfNeeded(presenter: self, for: [article], with: actions) { showed in
+            if !showed {
+                let _ = self.editController.didPerformAction(action)
+            }
         }
+        return true
     }
     
     func didPerformAction(_ action: Action) -> Bool {
@@ -241,20 +255,14 @@ extension ArticleCollectionViewController: ActionDelegate {
             if let articleURL = articleURL(at: indexPath) {
                 dataStore.savedPageList.addSavedPage(with: articleURL)
                 UIAccessibility.post(notification: UIAccessibility.Notification.announcement, argument: CommonStrings.accessibilitySavedNotification)
-                if let article = article(at: indexPath) {
-                    readingListHintController?.didSave(true, article: article, theme: theme)
-                    ReadingListsFunnel.shared.logSave(category: eventLoggingCategory, label: eventLoggingLabel, articleURL: articleURL, date: feedFunnelContext?.midnightUTCDate, measurePosition: indexPath.item)
-                }
+                ReadingListsFunnel.shared.logSave(category: eventLoggingCategory, label: eventLoggingLabel, articleURL: articleURL, date: feedFunnelContext?.midnightUTCDate, measurePosition: indexPath.item)
                 return true
             }
         case .unsave:
             if let articleURL = articleURL(at: indexPath) {
                 dataStore.savedPageList.removeEntry(with: articleURL)
                 UIAccessibility.post(notification: UIAccessibility.Notification.announcement, argument: CommonStrings.accessibilityUnsavedNotification)
-                if let article = article(at: indexPath) {
-                    readingListHintController?.didSave(false, article: article, theme: theme)
-                    ReadingListsFunnel.shared.logUnsave(category: eventLoggingCategory, label: eventLoggingLabel, articleURL: articleURL, date: feedFunnelContext?.midnightUTCDate, measurePosition: indexPath.item)
-                }
+                ReadingListsFunnel.shared.logUnsave(category: eventLoggingCategory, label: eventLoggingLabel, articleURL: articleURL, date: feedFunnelContext?.midnightUTCDate, measurePosition: indexPath.item)
                 return true
             }
         case .share:

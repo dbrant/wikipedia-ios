@@ -1,19 +1,24 @@
 // Messages for Italian (italiano)
 // Exported from translatewiki.net
 // Author: Alexmar983
+// Author: Annibale covini gerolamo
 // Author: Anto
 // Author: Bertaz
 // Author: Beta16
 // Author: Brion
 // Author: Chris96
+// Author: Dansita
 // Author: Devid Farinelli
+// Author: Eduardo Addad de Oliveira
 // Author: F. Cosoleto
 // Author: Giacomo Checchin
 // Author: Gianfranco
 // Author: Giuseppe Forte
 // Author: Greis
 // Author: JackLantern
+// Author: Lorelai87
 // Author: Macofe
+// Author: Manfredi26
 // Author: Martinligabue
 // Author: Nastoshka
 // Author: Nemo bis
@@ -24,6 +29,7 @@
 // Author: S4b1nuz E.656
 // Author: Sarah Bernabei
 // Author: Segaz3
+// Author: Senpremì
 // Author: Simoarmanni
 // Author: Statix64
 // Author: SuperVirtual
@@ -48,15 +54,14 @@
 "about-translators-details" = "Tradotto dai volontari di $1";
 "about-wikimedia-foundation" = "Wikimedia Foundation";
 "about-wikipedia" = "Wikipedia";
-"abuse-filter-disallow-heading" = "Non puoi salvare questa modifica. Per favore torna indietro e modificala.";
-"abuse-filter-disallow-notable" = "Wikipedia è un'enciclopedia e devono esserci solo contenuti neutrali e degni di nota.";
-"abuse-filter-disallow-unconstructive" = "Un filtro automatico ha identificato questa modifica come potenzialmente inconcludente o un tentativo di vandalismo.";
-"abuse-filter-warning-blanking" = "Articolo vuoto o di spam";
-"abuse-filter-warning-caps" = "Scritte tutte in MAIUSCOLO";
+"abuse-filter-disallow-heading" = "Non puoi pubblicare questa modifica";
+"abuse-filter-disallow-unconstructive" = "Un filtro automatico ha identificato questa modifica come potenzialmente inconcludente o come un tentativo di vandalismo. Torna indietro e cambia la tua modifica.";
+"abuse-filter-warning-blanking" = "Cancellazioni di sezioni o voci complete";
+"abuse-filter-warning-caps" = "Testo tutto in maiuscolo";
 "abuse-filter-warning-heading" = "Questa potrebbe essere una modifica inutile, sei sicuro di volerla salvare?";
 "abuse-filter-warning-irrelevant" = "Collegamenti esterni o immagini non pertinenti";
-"abuse-filter-warning-repeat" = "Caratteri ripeeeeeeetuti";
-"abuse-filter-warning-subheading" = "La tua modifica potrebbe contenere uno o più dei seguenti elementi:";
+"abuse-filter-warning-repeat" = "Caratteri ripetuti";
+"abuse-filter-warning-subheading" = "La tua modifica potrebbe contenere:";
 "account-creation-captcha-cannot-see-image" = "Non riesci a vedere l'immagine? $1";
 "account-creation-captcha-obtaining" = "Creazione di un nuovo CAPTCHA...";
 "account-creation-captcha-request-account" = "Richiedi utenza";
@@ -68,23 +73,35 @@
 "account-creation-passwords-mismatched" = "Le password non corrispondono.";
 "account-creation-saving" = "Salvataggio...";
 "account-creation-title" = "Crea una nuova utenza";
+"account-group-title" = "La tua utenza";
 "action-add-to" = "Aggiungi a…";
 "action-add-to-reading-list" = "Aggiungi all'elenco di lettura";
 "action-add-to-reading-list-short" = "Aggiungi all'elenco";
 "action-cancel" = "Annulla";
+"action-find-in-page" = "Trova nella pagina";
+"action-language-accessibility" = "Cambia lingua";
 "action-move-to" = "Sposta in…";
 "action-move-to-reading-list" = "Sposta nell'elenco di lettura";
+"action-next-revision-accessibility" = "Versione successiva";
+"action-previous-revision-accessibility" = "Versione precedente";
 "action-read" = "Leggi";
+"action-redo" = "Ripeti";
 "action-remove" = "Rimuovi";
+"action-replace" = "Sostituisci";
+"action-replace-all" = "Sostituisci tutto";
+"action-retry" = "Riprova";
 "action-save" = "Salva";
 "action-saved" = "Salvato";
 "action-saved-accessibility-notification" = "Voce salvata per dopo";
 "action-share" = "Condividi";
+"action-share-accessibility" = "Condividi";
+"action-sort" = "Ordina";
+"action-undo" = "Annulla";
 "action-unsave" = "Annulla salvataggio";
 "action-unsaved-accessibility-notification" = "Voce non salvata";
 "action-update" = "Aggiorna";
 "add-articles-to-reading-list" = "Aggiungi $1 {{PLURAL:$1|voce|voci}} all'elenco di lettura";
-"alert-no-internet" = "Non c'è alcuna connessione a internet";
+"add-citation-title" = "Aggiungi citazione";
 "announcements-dismiss" = "Nascondi";
 "app-store-subtitle" = "L'enciclopedia libera";
 "appearance-settings-adjust-text-sizing" = "Regola la dimensione del testo dell'articolo";
@@ -99,11 +116,9 @@
 "article-languages-others" = "Altre lingue";
 "article-languages-yours" = "Le tue lingue";
 "article-read-more-title" = "Leggi altro";
+"article-reference-view-title" = "Riferimento $1";
 "article-share" = "Condividi";
-"article-unable-to-load-article" = "Impossibile caricare questa pagina.";
-"article-unable-to-load-section" = "Impossibile caricare questa sezione. Prova ad aggiornare l'articolo per vedere se si risolve il problema.";
 "back-button-accessibility-label" = "Indietro";
-"button-done" = "Fatto";
 "button-next" = "Successivo";
 "button-ok" = "OK";
 "button-publish" = "Pubblica";
@@ -114,19 +129,26 @@
 "button-saved-remove" = "Rimuovi dai salvati";
 "button-skip" = "Salta";
 "cancel" = "Annulla";
-"cc-by-sa-3.0" = "CC BY-SA 3.0";
 "cc-zero" = "Creative Commons CC0";
+"clear-title-accessibility-label" = "Pulisci";
 "close-button-accessibility-label" = "Chiudi";
 "compass-direction" = "alle ore $1";
 "continue-reading-empty-description" = "Esplorare Wikipedia per altre voci da leggere";
 "continue-reading-empty-title" = "Nessuna voce letta recentemente";
 "description-add-link-title" = "Aggiungi una descrizione del titolo";
 "description-add-title" = "Aggiungi descrizione";
+"description-edit-for-article" = "Descrizione del titolo per $1";
 "description-edit-learn-more" = "Ulteriori informazioni";
+"description-edit-length-warning" = "$1 / $2";
+"description-edit-license" = "Modificando la descrizione del titolo, accetto le $1 e di rilasciare irrevocabilmente i miei contributi in base alla licenza $2.";
+"description-edit-pencil-introduction" = "Modifica introduzione";
 "description-edit-pencil-title" = "Modifica descrizione del titolo";
 "description-edit-placeholder-title" = "Descrizioni brevi sono le migliori";
 "description-edit-publish" = "Pubblica descrizione";
 "description-edit-title" = "Modifica descrizione";
+"description-help-about-title" = "A proposito di";
+"description-help-about-wikidata" = "A proposito di Wikidata";
+"description-help-more-info-description" = "Le descrizioni sono archiviate e mantenute su Wikidata, un progetto della Fondazione Wikimedia che fornisce un database secondario, libero, collaborativo e multilingue per il supporto di Wikipedia e altri progetti.";
 "description-help-more-info-title" = "Ulteriori informazioni";
 "description-help-tips-example-description-two" = "descrizione del titolo per un articolo sul Monte Everest";
 "description-help-tips-example-title-one" = "dipinto da Leonardo da Vinci";
@@ -136,17 +158,63 @@
 "description-published-subtitle" = "Hai appena reso Wikipedia migliore per tutti";
 "description-published-title" = "Descrizione pubblicata!";
 "description-welcome-concise-sub-title" = "Idealmente una riga, da due a dodici parole";
+"description-welcome-descriptions-title" = "Descrizioni del titolo";
 "description-welcome-start-editing-button" = "Inizia a modificare";
+"diff-compare-header-from-info-heading" = "Da:";
+"diff-compare-header-to-info-heading" = "A:";
+"diff-context-lines-collapsed-button-title" = "Mostra";
+"diff-context-lines-expanded-button-title" = "Nascondi";
+"diff-multi-line-format" = "Righe $1 - $2";
+"diff-paragraph-moved-distance-section" = "{{PLURAL:$1|$1 sezione|$1 sezioni}}";
+"diff-single-header-editor-number-edits-format" = "{{PLURAL:$1|$1 modifica|$1 modifiche}}";
+"diff-single-header-subtitle-bytes-added" = "$1 byte {{PLURAL:$1|aggiunto|aggiunti}}";
+"diff-single-header-summary-heading" = "Oggetto della modifica";
+"diff-single-line-format" = "Riga $1";
+"edit-bold-accessibility-label" = "Aggiungi la formattazione in grassetto";
+"edit-bold-remove-accessibility-label" = "Rimuovi la formattazione in grassetto";
+"edit-clear-formatting-accessibility-label" = "Rimuovi formattazione";
+"edit-comment-accessibility-label" = "Aggiungi sintassi per commento";
+"edit-direction-left-accessibility-label" = "Sposta il cursore a sinistra";
+"edit-direction-right-accessibility-label" = "Sposta il cursore a destra";
+"edit-increase-indent-depth-accessibility-label" = "Aumenta indentazione";
+"edit-italic-accessibility-label" = "Aggiungi la formattazione in corsivo";
+"edit-link-display-text-title" = "Mostra testo";
+"edit-link-link-target-title" = "Destinazione collegamento";
+"edit-link-remove-accessibility-label" = "Rimuovi sintassi per collegamento";
+"edit-link-remove-link-title" = "Rimuovi collegamento";
+"edit-link-title" = "Modifica collegamento";
+"edit-menu-item" = "Modifica";
+"edit-minor-learn-more-text" = "Per saperne di più sulle modifiche minori";
+"edit-minor-text" = "Questa è una modifica minore";
+"edit-published" = "Modifica pubblicata";
+"edit-published-subtitle" = "Hai appena reso Wikipedia migliore per tutti";
+"edit-reference-accessibility-label" = "Aggiungi sintassi per nota";
+"edit-signature-accessibility-label" = "Aggiungi sintassi per firma";
+"edit-signature-remove-accessibility-label" = "Rimuovi sintassi per firma";
+"edit-strikethrough-accessibility-label" = "Aggiungi barrato";
+"edit-strikethrough-remove-accessibility-label" = "Rimuovi barrato";
+"edit-style-table-view-title" = "Stile";
+"edit-subscript-remove-accessibility-label" = "Rimuovi la formattazione del pedice";
 "edit-summary-choice-fixed-grammar" = "Corretta grammatica";
 "edit-summary-choice-fixed-typos" = "Corretto errore di battitura";
 "edit-summary-choice-linked-words" = "Aggiunti collegamenti";
-"edit-summary-choice-other" = "Altro";
-"edit-summary-field-placeholder-text" = "Altri modi in cui hai migliorato la voce";
-"edit-summary-title" = "Come hai migliorato la voce?";
+"edit-summary-learn-more-text" = "Ulteriori informazioni";
+"edit-summary-placeholder-text" = "Come hai migliorato la voce?";
+"edit-superscript-remove-accessibility-label" = "Rimuovi la formattazione dell'apice";
+"edit-template-accessibility-label" = "Aggiungi sintassi per template";
+"edit-text-clear-formatting" = "Pulisci formattazione";
+"edit-text-formatting-accessibility-label" = "Mostra il menu di formattazione del testo";
+"edit-text-formatting-table-view-title" = "Formattazione del testo";
+"edit-text-size-table-view-title" = "Dimensione del testo";
+"edit-underline-accessibility-label" = "Aggiungi sottolineatura";
+"edit-underline-remove-accessibility-label" = "Rimuovi sottolineatura";
+"edit-unordered-list-remove-accessibility-label" = "Rimuovi l'elenco puntato dalla riga attuale";
+"edit-watch-list-learn-more-text" = "Ulteriori informazioni sugli osservati speciali";
+"edit-watch-this-page-text" = "Aggiungi agli osservati speciali";
+"empty-insert-media-title" = "Seleziona un file da Wikimedia Commons";
 "empty-no-article-message" = "Spiacenti, impossibile caricare la voce";
 "empty-no-feed-action-message" = "Puoi ancora leggere le pagine salvate";
 "empty-no-feed-message" = "Puoi vedere le tue voci consigliate quando si dispone di internet";
-"empty-no-feed-title" = "Nessuna connessione internet";
 "empty-no-history-message" = "Tieni traccia di quello che hai letto qui";
 "empty-no-history-title" = "Nessuna cronologia da mostrare";
 "empty-no-reading-lists-title" = "Organizza le voci salvate in elenchi di lettura";
@@ -154,7 +222,7 @@
 "empty-no-saved-pages-message" = "Salva le pagine per vederle in seguito, anche non connesso";
 "empty-no-saved-pages-title" = "Nessuna pagina salvata ancora";
 "empty-no-search-results-message" = "Nessun risultato trovato";
-"error-generic-description" = "Si è verificato un errore imprevisto";
+"empty-talk-page-title" = "Nessun messaggio è stato ancora pubblicato per questo utente";
 "error-generic-recovery-suggestion" = "Per favore, riprova più tardi";
 "error-unknown" = "Si è verificato un errore sconosciuto";
 "explore-another-random" = "Un'altra voce a caso";
@@ -164,10 +232,10 @@
 "explore-featured-article-sub-heading-from-language-wikipedia" = "Da Wikipedia in $1";
 "explore-featured-article-sub-heading-from-wikipedia" = "Da Wikipedia";
 "explore-feed-customize-accessibility-title" = "Personalizza";
-"explore-feed-preferences-undo-customization" = "Annulla";
+"explore-feed-preferences-feed-card-visibility-all-languages-off" = "Disattivato";
+"explore-feed-preferences-feed-card-visibility-global-cards-on" = "Attivo";
 "explore-main-page-description" = "Pagina principale dei progetti Wikimedia";
 "explore-main-page-heading" = "Oggi su Wikipedia";
-// Fuzzy
 "explore-most-read-footer" = "Tutte le voci più lette";
 "explore-most-read-generic-heading" = "Più letti";
 "explore-most-read-more-list-title-for-date" = "Voci migliori il $1";
@@ -184,10 +252,11 @@
 "explore-random-article-sub-heading-from-language-wikipedia" = "Da Wikipedia in $1";
 "explore-random-article-sub-heading-from-wikipedia" = "Da Wikipedia";
 "explore-randomizer" = "Una pagina a caso";
+"featured-article-empty-title" = "Nessuna voce in vetrina disponibile oggi";
 "feed-news-notification-button-text" = "Attiva le notifiche";
+"fetcher-error-generic" = "Qualcosa è andato storto. Riprova più tardi.";
 "field-alert-captcha-invalid" = "CAPTCHA non valido";
 "field-alert-password-confirm-mismatch" = "Le password non corrispondono";
-"field-alert-password-invalid" = "Password non valida";
 "field-alert-token-invalid" = "Codice non valido";
 "field-alert-username-unavailable" = "Nome utente non disponibile";
 "field-captcha-placeholder" = "Testo CAPTCHA";
@@ -206,25 +275,18 @@
 "field-token-title" = "Codice di verifica";
 "field-username-placeholder" = "inserisci il nome utente";
 "field-username-title" = "Nome utente";
-"find-in-page-button-label" = "Trova nella pagina";
-"find-in-page-number-matches" = "$1 / $2";
+"find-infolabel-number-matches" = "$1 / $2";
+"find-replace-header" = "Trova e sostituisci";
+"find-textfield-accessibility" = "Trova";
 "forgot-password-button-title" = "Reimposta";
 "forgot-password-email-sent" = "Una email è stata inviata con le istruzioni per la reimpostazione della password";
 "forgot-password-title" = "Reimposta password";
 "forgot-password-username-or-email-title" = "O";
-"gfdl" = "GFDL";
 "history-clear-all" = "Pulisci";
 "history-clear-cancel" = "Annulla";
 "history-clear-confirmation-heading" = "Sei sicuro di voler cancellare tutti i tuoi elementi recenti?";
 "history-clear-delete-all" = "Sì, cancella tutto";
 "history-title" = "Cronologia";
-"hockeyapp-alert-always-send" = "Invia sempre";
-"hockeyapp-alert-do-not-send" = "Non inviare";
-"hockeyapp-alert-privacy" = "Privacy $1";
-"hockeyapp-alert-question" = "Desideri inviare una segnalazione di crash a $1 in modo che la Wikimedia Foundation sia in grado di esaminarlo?";
-"hockeyapp-alert-question-with-response-field" = "Desideri inviare una segnalazione di crash a $1 in modo che la Wikimedia Foundation sia in grado di esaminarlo? Per favore descrivi ciò che è successo quando si è verificato il crash:";
-"hockeyapp-alert-send-report" = "Invia segnalazione";
-"hockeyapp-alert-title" = "Spiacenti, l'ultima volta l'applicazione è andata in errore";
 "home-button-explore-accessibility-label" = "Wikipedia, ritorna a Explore";
 "home-button-history-accessibility-label" = "Wikipedia, ritorna alla cronologia";
 "home-button-saved-accessibility-label" = "Wikipedia, ritorna alle pagine salvate";
@@ -232,7 +294,6 @@
 "home-nearby-footer" = "Altri luoghi vicini alla tua posizione";
 "home-nearby-location-footer" = "Altro nelle vicinanze di $1";
 "home-title" = "Esplora";
-"icon-shortcut-continue-reading-title" = "Continua a leggere";
 "icon-shortcut-nearby-title" = "Voci nelle vicinanze";
 "icon-shortcut-random-title" = "Voce a caso";
 "icon-shortcut-search-title" = "Cerca su Wikipedia";
@@ -240,17 +301,52 @@
 "in-the-news-currently-trending" = "Attualmente popolare";
 "in-the-news-notification-read-now-action-title" = "Leggi ora";
 "in-the-news-notification-save-for-later-action-title" = "Salva per dopo";
-"in-the-news-notification-share-action-title" = "Condividi...";
+"in-the-news-notification-share-action-title" = "Condividi…";
 "in-the-news-sub-title-from-language-wikipedia" = "Da Wikipedia in $1";
 "in-the-news-sub-title-from-wikipedia" = "Da Wikipedia";
 "in-the-news-title" = "Novità";
 "info-box-close-text" = "Chiudi";
 "info-box-title" = "Fatti in breve";
+"insert-action-title" = "Inserisci";
+"insert-link-title" = "Inserisci collegamento";
+"insert-media-alternative-text-description" = "Descrizione testuale per utenti che non riescono a vedere l'immagine";
+"insert-media-alternative-text-placeholder" = "Descrivi questa immagine";
+"insert-media-alternative-text-title" = "Testo alternativo";
+"insert-media-caption-caption-placeholder" = "In che modo quest'immagine è correlata alla voce?";
+"insert-media-caption-description" = "Testo che appare vicino all'elemento per tutti i lettori";
+"insert-media-caption-title" = "Didascalia";
+"insert-media-image-position-setting-center" = "Al centro";
+"insert-media-image-position-setting-left" = "A sinistra";
+"insert-media-image-position-setting-none" = "Nessuno";
+"insert-media-image-position-setting-right" = "A destra";
+"insert-media-image-position-settings-title" = "Posizione dell'immagine";
+"insert-media-image-preview-more-information-action-title" = "Ulteriori informazioni";
+"insert-media-image-preview-select-image-action-title" = "Seleziona immagine";
+"insert-media-image-size-setting-custom" = "Personalizzato";
+"insert-media-image-size-setting-default" = "Predefinito";
+"insert-media-image-size-settings-px-unit-name" = "px";
+"insert-media-image-size-settings-title" = "Dimensione immagine";
+"insert-media-image-type-setting-basic" = "Base";
+"insert-media-image-type-setting-frame" = "Incorniciato";
+"insert-media-image-type-setting-frameless" = "Non incorniciato";
+"insert-media-image-type-setting-thumbnail" = "Miniatura";
+"insert-media-image-type-settings-title" = "Tipo immagine";
+"insert-media-media-settings-title" = "Impostazioni file multimediali";
+"insert-media-title" = "Inserisci un file multimediale";
+"insert-media-uploaded-image-title" = "Immagine caricata";
+"intermediate-edits-count" = "{{PLURAL:$1|$1 versione intermedia|$1 versioni intermedie}} non {{PLURAL:$1|è mostrata|sono mostrate}}";
+"intermediate-edits-count-limited" = "Più di $1 versioni intermedie non sono mostrate";
+"intermediate-edits-editors-count" = "{{PLURAL:$1|$1 versione intermedia|$1 versioni intermedie}} di {{PLURAL:$2|$2 utente|$2 utenti}} non {{PLURAL:$1|è mostrata|sono mostrate}}";
+"intermediate-edits-editors-count-limited" = "Più di $1 versioni intermedie di più di $2 utenti non sono mostrate";
+"intermediate-edits-editors-limited-count" = "{{PLURAL:$1|$1 versione intermedia|$1 versioni intermedie}} di più di $2 utenti non {{PLURAL:$1|è mostrata|sono mostrate}}";
+"intermediate-edits-limited-editors-count" = "Più di $1 versioni intermedie di più di {{PLURAL:$2|$2 utente|$2 utenti}} non sono mostrate";
 "languages-settings-title" = "Lingue";
 "languages-title" = "Cambia lingua";
 "languages-wikipedia" = "Lingue di Wikipedia";
 "license-footer-name" = "CC BY-SA 3.0";
 "license-footer-text" = "Il contenuto è disponibile in base alla licenza $1, se non diversamente specificato.";
+"logged-out-continue-without-logging-in-button-title" = "Continua senza accedere";
+"logged-out-title" = "Sei stato disconnesso";
 "login-forgot-password" = "Hai dimenticato la password?";
 "login-join-wikipedia" = "Unisciti a Wikipedia.";
 "login-no-account" = "Non hai ancora un'utenza? $1";
@@ -261,11 +357,9 @@
 "main-menu-account-logout-are-you-sure" = "Sei sicuro di voler uscire?";
 "main-menu-account-logout-cancel" = "Annulla";
 "main-menu-account-title-logged-in" = "Accesso effettuato come $1";
-"main-menu-debug-crash" = "Crash";
 "main-menu-debug-tweaks" = "Impostazioni sviluppatore";
 "main-menu-heading-debug" = "Debug";
 "main-menu-heading-legal" = "Privacy e condizioni.";
-"main-menu-heading-zero" = "Wikipedia Zero";
 "main-menu-nearby" = "Nelle vicinanze";
 "main-menu-privacy-policy" = "Informativa sulla privacy";
 "main-menu-rate-app" = "Valuta l'app";
@@ -284,6 +378,9 @@
 "new-password-instructions" = "L'accesso è stato effettuato con una password temporanea. Per completare la registrazione, è necessario impostare una nuova password qui.";
 "new-password-title" = "Imposta la tua password";
 "no-email-account-alert" = "Configura un account di posta elettronica sul tuo dispositivo e riprova.";
+"no-internet-connection" = "Nessuna connessione internet";
+"no-internet-connection-article-reload" = "Potrebbe essere disponibile una versione più recente di questa voce, ma non può essere caricata senza una connessione a internet";
+"no-internet-connection-article-reload-button" = "Torna all'ultima versione salvata";
 "number-billions" = "$1";
 "number-millions" = "$1";
 "number-thousands" = "$1 mila";
@@ -292,18 +389,25 @@
 "on-this-day-footer" = "Alti eventi storici in questo giorno";
 "on-this-day-sub-title-for-date-from-language-wikipedia" = "$1 da Wikipedia in $2";
 "on-this-day-title" = "In questo giorno";
-"open-link-cancel" = "Annulla";
+// Fuzzy
 "page-edit-history" = "Cronologia delle modifiche completa";
-"page-history-title" = "Cronologia dell'articolo";
+"page-history-compare-title" = "Confronta";
+"page-history-revision-author-accessibility-label" = "Autore: $1";
+"page-history-revision-comment-accessibility-label" = "Commento $1";
+"page-history-revision-minor-edit-accessibility-label" = "Modifica minore";
+"page-history-revision-size-diff-addition" = "{{PLURAL:$1|Aggiunto|Aggiunti}} $1 byte";
+"page-history-revision-size-diff-subtraction" = "{{PLURAL:$1|Rimosso|Rimossi}} $1 byte";
+"page-history-stats-text" = "{{PLURAL:$1|1 modifica|$1 modifiche}} dal $2";
 "page-issues" = "Problemi alla pagina";
-"page-last-edited" = "Modificata $1 giorni fa";
+// Fuzzy
+"page-last-edited" = "Modificata {{PLURAL:$1|0=oggi|1=ieri|$1 giorni fa}}";
 "page-location" = "Visualizza sulla mappa";
 "page-protected-autoconfirmed" = "Questa pagina è stata semi-protetta.";
 "page-protected-can-not-edit" = "Non hai i diritti per modificare questa pagina";
 "page-protected-can-not-edit-title" = "Questa pagina è protetta";
 "page-protected-other" = "Questa pagina è stata protetta ai seguenti livelli: $1";
 "page-protected-sysop" = "Questa pagina è stata protetta.";
-"page-read-in-other-languages" = "Disponibile in altre $1 lingue";
+"page-read-in-other-languages" = "Disponibile in {{PLURAL:$1|un'altra lingua|altre $1 lingue}}";
 "page-similar-titles" = "Pagine simili";
 "places-accessibility-clear-saved-searches" = "Cancella le ricerche salvate";
 "places-accessibility-group" = "$1 voci";
@@ -314,6 +418,7 @@
 "places-enable-location-action-button-title" = "Permetti localizzazione";
 "places-enable-location-description" = "L'accesso alla tua localizzazione è disponibile solo quando l'applicazione o una delle sue funzioni è visibile sul tuo schermo.";
 "places-enable-location-title" = "Esplora gli articoli vicino alla tua ubicazione abilitando l'accesso alla localizzazione";
+"places-filter-button-title" = "Filtro";
 "places-filter-no-saved-places" = "Non hai luoghi salvati";
 "places-filter-saved-articles" = "Voci salvate";
 "places-filter-top-articles" = "Più letti";
@@ -340,7 +445,10 @@
 "reading-list-create-new-list-reading-list-name" = "Nome elenco di lettura";
 "reading-list-create-new-list-title" = "Crea un nuovo elenco";
 "reading-list-deleted-accessibility-notification" = "Elenco di lettura cancellato";
+"reading-list-entry-limit-exceeded-title" = "Hai superato il limite di {{PLURAL:$1|$1 voce|$1 voci}} per utenza.";
 "reading-list-limit-hit-for-unsorted-articles-button-title" = "Ordina voci";
+"reading-list-list-limit-exceeded-title" = "Hai superato il limite di {{PLURAL:$1|$1 elenco|$1 elenchi}} di lettura per utenza.";
+"reading-list-login-button-title" = "Accedi per sincronizzare le tue voci salvate";
 "reading-list-sync-enabled-panel-message" = "La sincronizzazione degli elenchi di lettura è attivata su questo account. Per bloccarla, puoi disattivare la sincronizzazione di questo account aggiornando le tue impostazioni.";
 "reading-list-sync-enabled-panel-title" = "La sincronizzazione è attivata su questo account";
 "reading-lists-article-added-confirmation" = "Voce aggiunta a \"$1\"";
@@ -348,15 +456,31 @@
 "reading-lists-default-list-description" = "Elenco predefinito per le tue voci salvate";
 "reading-lists-default-list-title" = "Salvato";
 "reading-lists-delete-reading-list-alert-title" = "Cancellare {{PLURAL:$1|elenco|elenchi}}?";
+"reading-lists-large-sync-completed" = "{{PLURAL:$1|$1 voce|$1 voci}} e {{PLURAL:$2|$2 elenco|$2 elenchi}} di lettura sincronizzati con la tua utenza";
 "reading-lists-sort-saved-articles" = "Ordina voci salvate";
 "reading-themes-controls-accessibility-dark-theme-button" = "Tema scuro";
 "reading-themes-controls-accessibility-light-theme-button" = "Tema chiaro";
 "reading-themes-controls-accessibility-sepia-theme-button" = "Tema seppia";
+"reading-themes-controls-accessibility-syntax-highlighting-switch" = "Evidenziazione della sintassi";
+"reading-themes-controls-syntax-highlighting" = "Evidenziazione della sintassi";
 "reference-title" = "Riferimento $1";
-"relative-date-days-ago" = "{{PLURAL:$1|0=Oggi|Ieri|$1 giorni fa}}";
+"relative-date-days-ago" = "{{PLURAL:$1|0=Oggi|1=Ieri|$1 giorni fa}}";
+"relative-date-hours-abbreviated" = "$1h";
 "relative-date-hours-ago" = "{{PLURAL:$1|0=Recentemente|$1 ora fa|$1 ore fa}}";
+"relative-date-hours-ago-abbreviated" = "$1h fa";
+"relative-date-minutes-abbreviated" = "$1m";
 "relative-date-minutes-ago" = "{{PLURAL:$1|0=Proprio ora|$1 minuto fa|$1 minuti fa}}";
-"relative-date-years-ago" = "{{PLURAL:$1|0=Quest'anno|L'anno scorso|$1 anni fa}}";
+"relative-date-minutes-ago-abbreviated" = "$1m fa";
+"relative-date-months-ago" = "{{PLURAL:$1|0=Questo mese|1=Mese scorso|$1 mesi fa}}";
+"relative-date-seconds-abbreviated" = "$1s";
+"relative-date-seconds-ago-abbreviated" = "$1s fa";
+"relative-date-years-ago" = "{{PLURAL:$1|0=Quest'anno|1=L'anno scorso|$1 anni fa}}";
+"replace-button-accessibility" = "Esegui $1.";
+"replace-infolabel-method-replace" = "Sostituisci";
+"replace-infolabel-method-replace-all" = "Sostituisci tutto";
+"replace-replace-all-results-count" = "{{PLURAL:$1|$1 elemento sostituito|$1 elementi sostituiti}}";
+"replace-textfield-accessibility" = "Sostituisci";
+"replace-textfield-placeholder" = "Sostituisci con…";
 "request-feedback-on-error" = "L'applicazione ha riscontrato un problema su cui i nostri sviluppatori vorrebbero saperne di più. Si prega di toccare qui per inviarci una email con i dettagli dell'errore.";
 "reverted-edit-back-to-article-button-title" = "Torna alla voce";
 "reverted-edit-notification-body" = "La modifica che hai fatto alla voce $1 è stata annullata da $2";
@@ -370,6 +494,7 @@
 "saved-pages-progress-syncing" = "Scaricamento della voce in corso...";
 "saved-reading-lists-title" = "Elenchi di lettura";
 "saved-title" = "Salvato";
+"search-button-accessibility-label" = "Cerca su Wikipedia";
 "search-clear-title" = "Pulisci";
 "search-did-you-mean" = "Forse cercavi $1?";
 "search-field-placeholder-text" = "Cerca su Wikipedia";
@@ -380,6 +505,7 @@
 "search-recent-title" = "Cercato recentemente";
 "search-result-redirected-from" = "Reindirizzamento da: $1";
 "search-title" = "Ricerca";
+"settings-account" = "Utenza";
 "settings-appearance" = "Preferenze di lettura";
 "settings-clear-cache-cancel" = "Annulla";
 "settings-clear-cache-ok" = "Pulisci cache";
@@ -392,13 +518,13 @@
 "settings-primary-language" = "Primaria";
 "settings-primary-language-details" = "La prima lingua in questo elenco è utilizzata come lingua principale per l'applicazione.";
 "settings-storage-and-syncing-enable-sync-footer-text" = "Permetti a Wikipedia di conservare le tue voci salvate e i tuoi elenchi di lettura nelle tue preferenze utente quando ti colleghi e sincronizzi";
+"settings-storage-and-syncing-erase-saved-articles-button-title" = "Cancella";
 "settings-storage-and-syncing-erase-saved-articles-footer-text" = "Cancellando le tue voci salvate li rimuoverai dal tuo account se hai l'account sincronizzato con questo dispositivo.\n\nCancellando le tue voci salvate guadagnerai $1 di spazio.";
 "settings-storage-and-syncing-server-sync-footer-text" = "Richiedi un aggiornamento alle tue voci sincronizzate e degli elenchi di lettura.";
 "settings-storage-and-syncing-server-sync-title" = "Aggiorna elenchi di lettura sincronizzati";
 "settings-support" = "Sostieni Wikipedia";
 "settings-title" = "Impostazioni";
 "share-article-name-on-wikipedia" = "\"$1\" su @Wikipedia";
-"share-custom-menu-item" = "Condividi...";
 "share-default-format" = "“$1” da “$2”: $3";
 "share-email-format" = "“$1”\n\nda “$2”\n\n$3";
 "share-get-directions-in-maps" = "Ottieni indicazioni";
@@ -408,6 +534,8 @@
 "share-open-in-maps" = "Apri in Maps";
 "share-social-format" = "“$1” tramite Wikipedia: $2";
 "share-social-mention-format" = "“$1” tramite @Wikipedia: $2";
+"sort-by-recently-added-action" = "Aggiunti di recente";
+"sort-by-title-action" = "Titolo";
 "status-saved-for-later" = "Salvato per dopo";
 "status-saving-for-later" = "Salvataggio per dopo...";
 "table-of-contents-button-label" = "Indice";
@@ -415,8 +543,24 @@
 "table-of-contents-close-accessibility-label" = "Chiudi l'indice";
 "table-of-contents-heading" = "Contenuti";
 "table-title-other" = "Ulteriori informazioni";
+"talk-page-add-discussion-accessibility-label" = "Aggiungi discussione";
+"talk-page-discussion-unread-accessibility-label" = "Non lette";
+"talk-page-info-active-conversations-generic" = "Conversazioni attive su Wikipedia";
+"talk-page-link-user-action-sheet-title" = "Pagine utente";
+"talk-page-new-banner-subtitle" = "Ricorda, siamo tutti umani qui";
+"talk-page-new-banner-title" = "Per favore, sii gentile";
+"talk-page-new-reply-success-text" = "La tua risposta è stata pubblicata con successo";
+"talk-page-new-subject-placeholder-text" = "Oggetto";
+"talk-page-new-subject-textfield-accessibility-label" = "Oggetto";
+"talk-page-new-topic-success-text" = "La tua discussione è stata pubblicata con successo";
+"talk-page-new-topic-title" = "Nuova discussione";
+"talk-page-reply-title" = "Rispondi";
+"talk-page-title-user-talk" = "Discussioni utente";
+"talk-page-topic-title" = "Discussione";
+"theme-black-display-name" = "Nero";
 "theme-dark-display-name" = "Scuro";
 "theme-default-display-name" = "Predefinito";
+"theme-light-display-name" = "Chiaro";
 "theme-sepia-display-name" = "Seppia";
 "top-read-header-generic" = "Wikipedia";
 "top-read-header-with-language" = "Wikipedia in $1";
@@ -425,48 +569,49 @@
 "two-factor-login-instructions" = "Inserisci il codice di verifica a due fattori";
 "two-factor-login-title" = "Accedi alla tua utenza";
 "two-factor-login-with-regular-code" = "Usa codice di verifica";
+"unknown-generic-text" = "Sconosciuto";
 "view-in-browser-footer-link" = "Vedi la voce nel browser";
+"welcome-exploration-explore-feed-description" = "Letture consigliate e voci quotidiane della nostra comunità";
+"welcome-exploration-explore-feed-title" = "Esplora feed";
 "welcome-exploration-on-this-day-description" = "Viaggia indietro nel tempo per sapere cosa è successo oggi nella storia";
 "welcome-exploration-on-this-day-title" = "In questo giorno";
 "welcome-exploration-places-description" = "Scopri i punti di riferimento vicino a te o cerca posti in tutto il mondo";
+"welcome-exploration-places-title" = "Scheda dei luoghi";
 "welcome-explore-continue-button" = "Inizia";
 "welcome-explore-new-ways-title" = "Nuovi modi per esplorare";
 "welcome-explore-tell-me-more-done-button" = "Capito";
 "welcome-intro-free-encyclopedia-description" = "Wikipedia è scritta collaborativamente da volontari e consiste in più di 40 milioni di voci in quasi 300 lingue.";
 "welcome-intro-free-encyclopedia-more" = "Ulteriori informazioni su Wikipedia";
 "welcome-intro-free-encyclopedia-more-about" = "Informazioni su Wikipedia";
+"welcome-intro-free-encyclopedia-more-description" = "Wikipedia è un progetto globale per costruire enciclopedie gratuite in tutte le lingue del mondo. Praticamente chiunque abbia accesso a internet è libero di partecipare fornendo informazioni neutrali e con riferimenti.";
 "welcome-intro-free-encyclopedia-title" = "L'enciclopedia libera";
 "welcome-languages-add-button" = "Aggiungi un'altra lingua";
 "welcome-languages-add-or-edit-button" = "Aggiungi o modifica lingue preferite";
 "welcome-languages-description" = "Abbiamo trovato le seguenti lingue sul tuo dispositivo:";
 "welcome-languages-search-title" = "Cerca in quasi 300 lingue";
+"welcome-notifications-tell-me-more-creation" = "Le notifiche vengono create e recapitate sul dispositivo dall'applicazione, non dai nostri server (o da quelli di terze parti).";
+"welcome-notifications-tell-me-more-storage" = "Le preferenze di notifica sono memorizzate sul dispositivo e non si basano su informazioni o attività personali.";
+"welcome-notifications-tell-me-more-title" = "Ulteriori informazioni sulle notifiche";
 "welcome-send-data-helps-title" = "Aiuta a rendere l'applicazione migliore";
 "welcome-send-data-learn-more" = "Ulteriori informazioni sui dati raccolti";
 "welcome-send-data-sub-title" = "Aiuta a migliorare l'applicazione facendo conoscere alla Fondazione Wikimedia come la utilizzi. I dati raccolti sono anonimi.";
 "welcome-volunteer-send-usage-reports" = "Invia rapporti sull'utilizzo";
-"wikitext-download-failed" = "Impossibile visualizzare l'ultima versione.";
-"wikitext-download-success" = "Contenuto caricato.";
 "wikitext-downloading" = "Caricamento contenuto...";
 "wikitext-preview-changes" = "Recupero anteprima delle tue modifiche...";
 "wikitext-preview-changes-none" = "Non sono state apportate modifiche da visualizzare in anteprima.";
+"wikitext-preview-link-external-preview-description" = "Questo collegamento porta a un sito esterno: $1";
+"wikitext-preview-link-external-preview-title" = "Collegamento esterno";
+"wikitext-preview-link-not-found-preview-description" = "Wikipedia non ha una voce con questo titolo esatto";
+"wikitext-preview-link-not-found-preview-title" = "Collegamento interno non trovato";
 "wikitext-preview-link-preview-description" = "Questo collegamento porta a '$1'";
 "wikitext-preview-link-preview-title" = "Anteprima collegamento";
+"wikitext-preview-save-changes-title" = "Salva le modifiche";
 "wikitext-upload-captcha-error" = "Errore nella verifica del CAPTCHA.";
 "wikitext-upload-captcha-needed" = "Verifica del CAPTCHA necessaria.";
 "wikitext-upload-result-unknown" = "Impossibile determinare il risultato del caricamento del wikitesto.";
 "wikitext-upload-save" = "Pubblicazione...";
+"wikitext-upload-save-anonymously-or-login" = "Le modifiche verranno attribuite all'indirizzo IP del tuo dispositivo. Se $1accedi$2 avrai maggiore privacy.";
 "wikitext-upload-save-anonymously-warning" = "Le modifiche verranno attribuite all'indirizzo IP del tuo dispositivo. Se $1 avrai maggiore privacy.";
 "wikitext-upload-save-sign-in" = "Accedi";
-"wikitext-upload-save-terms-cc-by-sa-and-gfdl" = "Pubblicando le modifiche, accetti le nostre $1 e accetti di rilasciare il tuo contributo in base alle licenze $2 e $3.";
+"wikitext-upload-save-terms-and-licenses" = "Pubblicando le modifiche, accetti le nostre $1condizioni d'uso$2, e accetti irrevocabilmente di rilasciare il tuo contributo in base alle licenze $3CC BY-SA 3.0$4 e $5GFDL$6. Accetti che un collegamento ipertestuale o URL sia sufficiente per l'attribuzione in base alla licenza Creative Commons.";
 "wikitext-upload-save-terms-name" = "Condizioni d'uso";
-"zero-charged-verbiage" = "Wikipedia Zero è spento";
-"zero-charged-verbiage-extended" = "Scaricare altri articoli può comportare tariffe dati. Gli articoli salvati archiviati offline non utilizzano dati mobili e sono gratuiti.";
-"zero-free-verbiage" = "Accesso gratuito a Wikipedia dal vostro operatore di telefonia mobile (tariffa dati non applicata)";
-"zero-interstitial-cancel" = "Resta qui";
-"zero-interstitial-continue" = "Lascia";
-"zero-interstitial-leave-app" = "Potrebbero essere applicati i costi di connessione. Continuare su un sito esterno?";
-"zero-interstitial-title" = "Stai uscendo da Wikipedia Zero";
-"zero-learn-more" = "I costi di connessione sono gratuiti per questa applicazione Wikipedia";
-"zero-learn-more-learn-more" = "Per saperne di più";
-"zero-learn-more-no-thanks" = "Nascondi";
-"zero-warn-when-leaving" = "Avvisa se sto uscendo da Zero";

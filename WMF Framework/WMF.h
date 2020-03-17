@@ -16,7 +16,6 @@ FOUNDATION_EXPORT const unsigned char WMFVersionString[];
 #import <WMF/WMFDeprecationMacros.h>
 #import <WMF/NSProcessInfo+WMFOperatingSystemVersionChecks.h>
 #import <WMF/NSArray+WMFMapping.h>
-#import <WMF/NSDictionary+WMFExtensions.h>
 #import <WMF/NSURL+WMFExtras.h>
 #import <WMF/WMFGCDHelpers.h>
 #import <WMF/WMFLogging.h>
@@ -27,9 +26,7 @@ FOUNDATION_EXPORT const unsigned char WMFVersionString[];
 #import <WMF/WMFOutParamUtils.h>
 #import <WMF/WMFRangeUtils.h>
 #import <WMF/NSIndexSet+BKReduce.h>
-#import <WMF/NSMutableDictionary+WMFMaybeSet.h>
 #import <WMF/WMFGeometry.h>
-#import <WMF/NSURL+WMFProxyServer.h>
 #import <WMF/NSURL+WMFQueryParameters.h>
 #import <WMF/NSFileManager+WMFExtendedFileAttributes.h>
 #import <WMF/WMFTaskGroup.h>
@@ -41,7 +38,6 @@ FOUNDATION_EXPORT const unsigned char WMFVersionString[];
 #import <WMF/WMFNumberOfExtractCharacters.h>
 #import <WMF/NSBundle+WMFInfoUtils.h>
 #import <WMF/NSDictionary+WMFPageViewsSortedByDate.h>
-#import <WMF/NSString+WMFPageUtilities.h>
 #import <WMF/MWKLicense.h>
 #import <WMF/NSString+SHA256.h>
 
@@ -53,13 +49,8 @@ FOUNDATION_EXPORT const unsigned char WMFVersionString[];
 #import <WMF/MWKDataObject.h>
 #import <WMF/MWKSiteDataObject.h>
 
-#import <WMF/MWKArticle.h>
-#import <WMF/MWKSection.h>
-#import <WMF/MWKSectionList.h>
-#import <WMF/MWKImage.h>
 #import <WMF/MWKUser.h>
 
-#import <WMF/MWKHistoryList.h>
 #import <WMF/MWKSavedPageList.h>
 
 #import <WMF/MWKRecentSearchEntry.h>
@@ -71,46 +62,27 @@ FOUNDATION_EXPORT const unsigned char WMFVersionString[];
 #import <WMF/WMFImageTagList.h>
 #import <WMF/WMFImageTagList+ImageURLs.h>
 
-#import <WMF/MWKProtectionStatus.h>
-
 #import <WMF/MWLanguageInfo.h>
 
 #import <WMF/MWKImageInfo.h>
 #import <WMF/NSString+WMFExtras.h>
 #import <WMF/NSCharacterSet+WMFExtras.h>
-#import <WMF/NSAttributedString+WMFTrim.h>
 
-#import <WMF/WMFURLCache.h>
-
-#import <WMF/MWKArticle+WMFSharing.h>
-#import <WMF/MWKImage+CanonicalFilenames.h>
-#import <WMF/MWKImageInfo+MWKImageComparison.h>
-#import <WMF/MWKSavedPageEntry+ImageMigration.h>
-#import <WMF/MWKSavedPageListDataExportConstants.h>
 #import <WMF/WikipediaAppUtils.h>
 #import <WMF/NSRegularExpression+HTML.h>
 #import <WMF/NSString+WMFHTMLParsing.h>
+#import <WMF/WMFHTMLElement.h>
 #import <WMF/WMFImageURLParsing.h>
-#import <WMF/WMFZeroConfiguration.h>
-#import <WMF/WMFZeroConfigurationFetcher.h>
-#import <WMF/MWKSectionMetaData.h>
 #import <WMF/MWKLanguageLink.h>
 
 #import <WMF/MWKLanguageLinkController.h>
 #import <WMF/MWKLanguageFilter.h>
-#import <WMF/WMFApiJsonResponseSerializer.h>
-#import <WMF/MWKLanguageLinkResponseSerializer.h>
-#import <WMF/WMFMantleJSONResponseSerializer.h>
-#import <WMF/WMFNetworkUtilities.h>
-#import <WMF/FetcherBase.h>
 
 #import <WMF/UIScreen+WMFImageWidth.h>
 #import <WMF/NSURL+WMFMainPage.h>
 #import <WMF/WMFAssetsFile.h>
 
 #import <WMF/WMFNotificationsController.h>
-
-#import <WMF/MWNetworkActivityIndicatorManager.h>
 
 #import <WMF/MWKLanguageLinkController_Private.h>
 #import <WMF/WMFFaceDetectionCache.h>
@@ -133,19 +105,11 @@ FOUNDATION_EXPORT const unsigned char WMFVersionString[];
 #import <WMF/WMFFeedNewsStory.h>
 #import <WMF/WMFFeedOnThisDayEvent.h>
 
-#import <WMF/MWKSiteInfo.h>
-#import <WMF/MWKSiteInfoFetcher.h>
-#import <WMF/WMFRandomArticleFetcher.h>
-
 #import <WMF/WMFLocationManager.h>
 #import <WMF/CLLocationManager+WMFLocationManagers.h>
 #import <WMF/CLLocation+WMFBearing.h>
 #import <WMF/NSString+WMFDistance.h>
 #import <WMF/CLLocation+WMFComparison.h>
-
-#import <WMF/WMFRelatedSearchFetcher.h>
-#import <WMF/WMFRelatedSearchResults.h>
-#import <WMF/WMFSearchResponseSerializer.h>
 
 #import <WMF/MWKLocationSearchResult.h>
 #import <WMF/WMFLocationSearchResults.h>
@@ -153,13 +117,7 @@ FOUNDATION_EXPORT const unsigned char WMFVersionString[];
 #import <WMF/MWKLocationSearchResult.h>
 
 #import <WMF/EventLoggingFunnel.h>
-#import <WMF/AFHTTPSessionManager+WMFConfig.h>
-#import <WMF/AFHTTPRequestSerializer+WMFRequestHeaders.h>
-#import <WMF/AFHTTPSessionManager+WMFCancelAll.h>
-#import <WMF/WMFArticlePreviewFetcher.h>
-#import <WMF/WMFBaseRequestSerializer.h>
 #import <WMF/MWKSearchResult.h>
-#import <WMF/NSDictionary+WMFCommonParams.h>
 
 #import <WMF/WMFArticle+Extensions.h>
 #import <WMF/WMFContentGroup+Extensions.h>
@@ -168,8 +126,6 @@ FOUNDATION_EXPORT const unsigned char WMFVersionString[];
 #import <WMF/NSManagedObjectContext+WMFKeyValue.h>
 #import <WMF/WMFAnnouncement.h>
 #import <WMF/NSUserActivity+WMFExtensions.h>
-
-#import <WMF/WMFFIFOCache.h>
 
 //UI
 #import <WMF/UIImageView+WMFImageFetching.h>
@@ -180,15 +136,13 @@ FOUNDATION_EXPORT const unsigned char WMFVersionString[];
 #import <WMF/WMFGradientView.h>
 #import <WMF/WMFFeedContentDisplaying.h>
 #import <WMF/WMFContentGroup+WMFFeedContentDisplaying.h>
+#import <WMF/WMFLegacyFetcher.h>
+#import <WMF/WMFLegacySerializer.h>
+#import <WMF/MWKImageInfoFetcher.h>
 
 //Deprecated
-#import <WMF/MWKHistoryEntry.h>
 #import <WMF/MWKList.h>
 #import <WMF/MWKList+Subclass.h>
 #import <WMF/MWKSite.h>
 #import <WMF/MWKTitle.h>
-#import <WMF/SessionSingleton.h>
-#import <WMF/QueuesSingleton.h>
-#import <WMF/MWKSavedPageEntry.h>
-#import <WMF/WMFLegacyContentGroup.h>
 #import <WMF/WMFLegacyImageCache.h>

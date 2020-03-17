@@ -1,9 +1,6 @@
 #import <XCTest/XCTest.h>
 #import "NSUserActivity+WMFExtensions.h"
 
-@interface MWKArticle (Testing)
-@property (nonatomic, copy) NSString *displaytitle;
-@end
 
 @interface NSUserActivity_WMFExtensions_wmf_activityForWikipediaScheme_Test : XCTestCase
 @end
@@ -25,7 +22,7 @@
 - (void)testArticleURL {
     NSURL *url = [NSURL URLWithString:@"wikipedia://en.wikipedia.org/wiki/Foo"];
     NSUserActivity *activity = [NSUserActivity wmf_activityForWikipediaScheme:url];
-    XCTAssertEqual(activity.wmf_type, WMFUserActivityTypeArticle);
+    XCTAssertEqual(activity.wmf_type, WMFUserActivityTypeLink);
     XCTAssertEqualObjects(activity.webpageURL.absoluteString, @"https://en.wikipedia.org/wiki/Foo");
 }
 
@@ -50,24 +47,10 @@
 - (void)testSearchURL {
     NSURL *url = [NSURL URLWithString:@"wikipedia://en.wikipedia.org/w/index.php?search=dog"];
     NSUserActivity *activity = [NSUserActivity wmf_activityForWikipediaScheme:url];
-    XCTAssertEqual(activity.wmf_type, WMFUserActivityTypeSearchResults);
+    XCTAssertEqual(activity.wmf_type, WMFUserActivityTypeLink);
     XCTAssertEqualObjects(activity.webpageURL.absoluteString,
                           @"https://en.wikipedia.org/w/index.php?search=dog&title=Special:Search&fulltext=1");
 }
 
 @end
 
-@interface NSUserActivity_WMFExtensions_articleViewActivityWithArticle_Test : XCTestCase
-@end
-
-@implementation NSUserActivity_WMFExtensions_articleViewActivityWithArticle_Test
-
-- (void)testArticleViewActivityWithArticle {
-    MWKArticle *article = [[MWKArticle alloc] initWithURL:[NSURL URLWithString:@"https://en.wikipedia.org/wiki/Foo"]];
-    article.displaytitle = @"Foo";
-    NSUserActivity *activity = [NSUserActivity wmf_articleViewActivityWithArticle:article];
-    XCTAssertEqual(activity.wmf_type, WMFUserActivityTypeArticle);
-    XCTAssertEqualObjects(activity.webpageURL.absoluteString, @"https://en.wikipedia.org/wiki/Foo");
-}
-
-@end

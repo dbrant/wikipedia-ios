@@ -41,6 +41,11 @@ Runs tests against the beta cluster to check for upstream changes.
 fastlane ios verify_pull_request
 ```
 Runs tests on select platforms for verifying pull requests
+### ios read_xcversion
+```
+fastlane ios read_xcversion
+```
+
 ### ios verify
 ```
 fastlane ios verify
@@ -141,6 +146,11 @@ updates version, builds, and pushes to TestFlight
 fastlane ios test_and_push_beta
 ```
 Runs tests, version, tag, and push to the beta branch
+### ios upload_app_store_metadata
+```
+fastlane ios upload_app_store_metadata
+```
+Upload app store metadata
 ### ios submit_release
 ```
 fastlane ios submit_release
@@ -150,7 +160,7 @@ Runs tests, version, tag, and push to the beta branch
 ```
 fastlane ios dsyms
 ```
-Download dSYMs from iTunes Connect and upload them to HockeyApp
+Download dSYMs from iTunes Connect
 ### ios dsyms_alpha
 ```
 fastlane ios dsyms_alpha

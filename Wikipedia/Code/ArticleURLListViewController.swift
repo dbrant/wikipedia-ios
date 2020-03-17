@@ -1,18 +1,18 @@
 import UIKit
 
-class ArticleURLListViewController: ArticleCollectionViewController, ArticleURLProvider {
+class ArticleURLListViewController: ArticleCollectionViewController, DetailPresentingFromContentGroup {
     let articleURLs: [URL]
     private let articleKeys: Set<String>
-    private var updater: ArticleURLProviderEditControllerUpdater?
+    let contentGroupIDURIString: String?
 
     required init(articleURLs: [URL], dataStore: MWKDataStore, contentGroup: WMFContentGroup? = nil, theme: Theme) {
         self.articleURLs = articleURLs
-        self.articleKeys = Set<String>(articleURLs.compactMap { $0.wmf_articleDatabaseKey } )
+        self.articleKeys = Set<String>(articleURLs.compactMap { $0.wmf_databaseKey } )
+        self.contentGroupIDURIString = contentGroup?.objectID.uriRepresentation().absoluteString
         super.init()
         feedFunnelContext = FeedFunnelContext(contentGroup)
         self.theme = theme
         self.dataStore = dataStore
-        NotificationCenter.default.addObserver(self, selector: #selector(articleDidChange(_:)), name: NSNotification.Name.WMFArticleUpdated, object: nil)
     }
     
     deinit {
@@ -52,7 +52,7 @@ class ArticleURLListViewController: ArticleCollectionViewController, ArticleURLP
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.reloadData()
-        updater = ArticleURLProviderEditControllerUpdater(articleURLProvider: self, collectionView: collectionView, editController: editController)
+        NotificationCenter.default.addObserver(self, selector: #selector(articleDidChange(_:)), name: NSNotification.Name.WMFArticleUpdated, object: nil)
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -72,6 +72,17 @@ class ArticleURLListViewController: ArticleCollectionViewController, ArticleURLP
 
     override func collectionViewFooterButtonWasPressed(_ collectionViewFooter: CollectionViewFooter) {
         navigationController?.popViewController(animated: true)
+    }
+    
+    
+    override func shareArticlePreviewActionSelected(with articleController: ArticleViewController, shareActivityController: UIActivityViewController) {
+        FeedFunnel.shared.logFeedDetailShareTapped(for: feedFunnelContext, index: previewedIndexPath?.item)
+        super.shareArticlePreviewActionSelected(with: articleController, shareActivityController: shareActivityController)
+    }
+
+    override func readMoreArticlePreviewActionSelected(with articleController: ArticleViewController) {
+        articleController.wmf_removePeekableChildViewControllers()
+        push(articleController, context: feedFunnelContext, index: previewedIndexPath?.item, animated: true)
     }
 }
 
@@ -105,19 +116,6 @@ extension ArticleURLListViewController {
     override func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
         super.previewingContext(previewingContext, commit: viewControllerToCommit)
         FeedFunnel.shared.logArticleInFeedDetailReadingStarted(for: feedFunnelContext, index: previewedIndexPath?.item, maxViewed: maxViewed)
-    }
-}
-
-// MARK: - WMFArticlePreviewingActionsDelegate
-extension ArticleURLListViewController {
-    override func shareArticlePreviewActionSelected(withArticleController articleController: WMFArticleViewController, shareActivityController: UIActivityViewController) {
-        FeedFunnel.shared.logFeedDetailShareTapped(for: feedFunnelContext, index: previewedIndexPath?.item)
-        super.shareArticlePreviewActionSelected(withArticleController: articleController, shareActivityController: shareActivityController)
-    }
-
-    override func readMoreArticlePreviewActionSelected(withArticleController articleController: WMFArticleViewController) {
-        articleController.wmf_removePeekableChildViewControllers()
-        wmf_push(articleController, context: feedFunnelContext, index: previewedIndexPath?.item, animated: true)
     }
 }
 

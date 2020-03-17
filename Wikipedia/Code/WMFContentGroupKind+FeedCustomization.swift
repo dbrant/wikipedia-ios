@@ -14,11 +14,11 @@ extension WMFContentGroupKind {
         return WMFExploreFeedContentController.globalContentGroupKindNumbers().contains(NSNumber(value: rawValue))
     }
 
-    var languageCodes: Set<String> {
+    var languageCodes: Array<String> {
         return feedContentController.languageCodes(for: self)
     }
 
     private var feedContentController: WMFExploreFeedContentController {
-        return SessionSingleton.sharedInstance().dataStore.feedContentController
+        return MWKDataStore.shared().feedContentController
     }
 }

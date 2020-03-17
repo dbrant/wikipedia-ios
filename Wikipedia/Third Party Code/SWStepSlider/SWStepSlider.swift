@@ -88,6 +88,11 @@ open class SWStepSlider: UIControl {
         let tap = UITapGestureRecognizer(target: self, action: #selector(self.handleTap(_:)))
         self.addGestureRecognizer(tap)
         
+        // Reverse the slider if we are in RTL mode
+        if UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft {
+            self.transform = CGAffineTransform(scaleX: -1, y: 1)
+        }
+        
         self.layer.addSublayer(self.thumbLayer)
     }
     
@@ -188,6 +193,10 @@ open class SWStepSlider: UIControl {
         if self.continuous == false {
             self.sendActions(for: .valueChanged)
         }
+    }
+
+    open override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        return !(gestureRecognizer is UIPanGestureRecognizer)
     }
     
     // MARK: - Helper

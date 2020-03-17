@@ -2,6 +2,16 @@ import UIKit
 
 @objc(WMFAlignedImageButton)
 public class AlignedImageButton: UIButton {
+    private var isFirstLayout = true
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        if isFirstLayout {
+            updateSemanticContentAttribute()
+            adjustInsets()
+            isFirstLayout = false
+        }
+    }
 
     /// Spacing between the image and title
     @IBInspectable open var horizontalSpacing: CGFloat = 8 {
@@ -35,7 +45,6 @@ public class AlignedImageButton: UIButton {
             adjustInsets()
         }
     }
-    
     
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)

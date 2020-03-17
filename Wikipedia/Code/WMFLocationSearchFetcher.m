@@ -3,13 +3,7 @@
 #import <WMF/WMFLocalization.h>
 #import <WMF/UIScreen+WMFImageWidth.h>
 #import <WMF/WMFNumberOfExtractCharacters.h>
-
-//Networking
-#import <WMF/MWNetworkActivityIndicatorManager.h>
-#import <WMF/AFHTTPSessionManager+WMFConfig.h>
-#import <WMF/WMFSearchResponseSerializer.h>
-@import Mantle;
-#import <WMF/WMFBaseRequestSerializer.h>
+#import <WMF/WMFLegacySerializer.h>
 
 //Models
 #import <WMF/WMFLocationSearchResults.h>
@@ -19,174 +13,108 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-NSString *const WMFLocationSearchErrorDomain = @"org.wikimedia.location.search";
-
-#pragma mark - Internal Class Declarations
-
-@interface WMFLocationSearchRequestParameters : NSObject
-@property (nonatomic, copy) CLCircularRegion *region;
-@property (nullable, nonatomic, copy) NSString *searchTerm;
-@property (nonatomic, assign) NSUInteger numberOfResults;
-@property (nonatomic, assign) WMFLocationSearchSortStyle sortStyle;
-@end
-
-@interface WMFLocationSearchRequestSerializer : WMFBaseRequestSerializer
-@end
-
 #pragma mark - Fetcher Implementation
 
-@interface WMFLocationSearchFetcher ()
-
-@property (nonatomic, strong) AFHTTPSessionManager *operationManager;
-
-@end
+NSString *const WMFLocationSearchErrorDomain = @"org.wikimedia.location.search";
 
 @implementation WMFLocationSearchFetcher
 
-- (instancetype)init {
-    self = [super init];
-    if (self) {
-        AFHTTPSessionManager *manager = [AFHTTPSessionManager wmf_createDefaultManager];
-        manager.requestSerializer = [WMFLocationSearchRequestSerializer serializer];
-        WMFSearchResponseSerializer *serializer = [WMFSearchResponseSerializer serializer];
-        serializer.searchResultClass = [MWKLocationSearchResult class];
-        manager.responseSerializer = serializer;
-        self.operationManager = manager;
-    }
-    return self;
-}
-
-- (void)dealloc {
-    [self.operationManager invalidateSessionCancelingTasks:YES];
-}
-
-- (BOOL)isFetching {
-    return [[self.operationManager operationQueue] operationCount] > 0;
-}
-
-- (WMFLocationSearchRequestSerializer *)nearbySerializer {
-    return (WMFLocationSearchRequestSerializer *)(self.operationManager.requestSerializer);
-}
-
-- (NSURLSessionDataTask *)fetchArticlesWithSiteURL:(NSURL *)siteURL
-                                          location:(CLLocation *)location
-                                       resultLimit:(NSUInteger)resultLimit
-                                        completion:(void (^)(WMFLocationSearchResults *results))completion
-                                           failure:(void (^)(NSError *error))failure {
-    return [self fetchArticlesWithSiteURL:siteURL location:location resultLimit:resultLimit useDesktopURL:NO completion:completion failure:failure];
-}
-
-- (NSURLSessionDataTask *)fetchArticlesWithSiteURL:(NSURL *)siteURL
-                                          location:(CLLocation *)location
-                                       resultLimit:(NSUInteger)resultLimit
-                                     useDesktopURL:(BOOL)useDeskTopURL
-                                        completion:(void (^)(WMFLocationSearchResults *results))completion
-                                           failure:(void (^)(NSError *error))failure {
+- (void)fetchArticlesWithSiteURL:(NSURL *)siteURL
+                        location:(CLLocation *)location
+                     resultLimit:(NSUInteger)resultLimit
+                      completion:(void (^)(WMFLocationSearchResults *results))completion
+                         failure:(void (^)(NSError *error))failure {
     CLCircularRegion *region = [[CLCircularRegion alloc] initWithCenter:location.coordinate radius:1000 identifier:@""];
-    return [self fetchArticlesWithSiteURL:siteURL inRegion:region matchingSearchTerm:nil resultLimit:resultLimit useDesktopURL:useDeskTopURL completion:completion failure:failure];
+    [self fetchArticlesWithSiteURL:siteURL inRegion:region matchingSearchTerm:nil sortStyle:WMFLocationSearchSortStyleNone resultLimit:resultLimit completion:completion failure:failure];
 }
 
-- (NSURLSessionDataTask *)fetchArticlesWithSiteURL:(NSURL *)siteURL
-                                          inRegion:(CLCircularRegion *)region
-                                matchingSearchTerm:(nullable NSString *)searchTerm
-                                         sortStyle:(WMFLocationSearchSortStyle)sortStyle
-                                       resultLimit:(NSUInteger)resultLimit
-                                        completion:(void (^)(WMFLocationSearchResults *results))completion
-                                           failure:(void (^)(NSError *error))failure {
-    return [self fetchArticlesWithSiteURL:siteURL inRegion:region matchingSearchTerm:searchTerm sortStyle:sortStyle resultLimit:resultLimit useDesktopURL:NO completion:completion failure:failure];
+- (void)fetchArticlesWithSiteURL:(NSURL *)siteURL
+                        inRegion:(CLCircularRegion *)region
+              matchingSearchTerm:(nullable NSString *)searchTerm
+                       sortStyle:(WMFLocationSearchSortStyle)sortStyle
+                     resultLimit:(NSUInteger)resultLimit
+                      completion:(void (^)(WMFLocationSearchResults *results))completion
+                         failure:(void (^)(NSError *error))failure {
+
+    NSDictionary *params = [self params:region searchTerm:searchTerm resultLimit:resultLimit sortStyle:sortStyle];
+
+    NSURL *url = [[self.configuration mediaWikiAPIURLComponentsForHost:siteURL.host withQueryParameters:params] URL];
+
+    assert(url);
+
+    [self.session getJSONDictionaryFromURL:url
+                               ignoreCache:YES
+                         completionHandler:^(NSDictionary<NSString *, id> *_Nullable result, NSHTTPURLResponse *_Nullable response, NSError *_Nullable error) {
+                             NSError *noResultsError = [NSError errorWithDomain:WMFLocationSearchErrorDomain code:WMFLocationSearchErrorCodeNoResults userInfo:@{NSLocalizedDescriptionKey: WMFLocalizedStringWithDefaultValue(@"empty-no-search-results-message", nil, nil, @"No results found", @"Shown when there are no search results")}];
+
+                             if (error) {
+                                 if (![[error domain] isEqualToString:NSURLErrorDomain]) {
+                                     error = noResultsError;
+                                 }
+                                 failure(error);
+                                 return;
+                             }
+
+                             if (response.statusCode == 304) {
+                                 NSError *error = [WMFFetcher noNewDataError];
+                                 failure(error);
+                                 return;
+                             }
+
+                             NSDictionary *pages = [result valueForKeyPath:@"query.pages"];
+
+                             if (!pages) {
+                                 failure(noResultsError);
+                                 return;
+                             }
+
+                             if (![pages isKindOfClass:[NSDictionary class]]) {
+                                 NSError *error = [WMFFetcher unexpectedResponseError];
+                                 failure(error);
+                                 return;
+                             }
+
+                             NSArray *JSONDictionaries = [pages.allValues wmf_select:^BOOL(id _Nonnull maybeJSONDictionary) {
+                                 return [maybeJSONDictionary isKindOfClass:[NSDictionary class]];
+                             }];
+
+                             NSError *serializerError = nil;
+                             NSArray<MWKLocationSearchResult *> *results = [MTLJSONAdapter modelsOfClass:[MWKLocationSearchResult class] fromJSONArray:JSONDictionaries error:&serializerError];
+                             if (serializerError) {
+                                 failure(serializerError);
+                                 return;
+                             }
+                             WMFLocationSearchResults *locationSearchResults = [[WMFLocationSearchResults alloc] initWithSearchSiteURL:siteURL region:region searchTerm:searchTerm results:results];
+                             completion(locationSearchResults);
+                         }];
 }
 
-- (NSURLSessionDataTask *)fetchArticlesWithSiteURL:(NSURL *)siteURL
-                                          inRegion:(CLCircularRegion *)region
-                                matchingSearchTerm:(nullable NSString *)searchTerm
-                                       resultLimit:(NSUInteger)resultLimit
-                                     useDesktopURL:(BOOL)useDeskTopURL
-                                        completion:(void (^)(WMFLocationSearchResults *results))completion
-                                           failure:(void (^)(NSError *error))failure {
-    return [self fetchArticlesWithSiteURL:siteURL inRegion:region matchingSearchTerm:searchTerm sortStyle:WMFLocationSearchSortStyleNone resultLimit:resultLimit useDesktopURL:useDeskTopURL completion:completion failure:failure];
-}
-
-- (NSURLSessionDataTask *)fetchArticlesWithSiteURL:(NSURL *)siteURL
-                                          inRegion:(CLCircularRegion *)region
-                                matchingSearchTerm:(nullable NSString *)searchTerm
-                                         sortStyle:(WMFLocationSearchSortStyle)sortStyle
-                                       resultLimit:(NSUInteger)resultLimit
-                                     useDesktopURL:(BOOL)useDeskTopURL
-                                        completion:(void (^)(WMFLocationSearchResults *results))completion
-                                           failure:(void (^)(NSError *error))failure {
-    NSURL *url = useDeskTopURL ? [NSURL wmf_desktopAPIURLForURL:siteURL] : [NSURL wmf_mobileAPIURLForURL:siteURL];
-
-    WMFLocationSearchRequestParameters *params = [WMFLocationSearchRequestParameters new];
-    params.region = region;
-    params.numberOfResults = resultLimit;
-    params.searchTerm = searchTerm;
-    params.sortStyle = sortStyle;
-    [[MWNetworkActivityIndicatorManager sharedManager] push];
-    return [self.operationManager wmf_apiZeroSafeGETWithURL:url
-        parameters:params
-        success:^(NSURLSessionDataTask *operation, id responseObject) {
-
-            [[MWNetworkActivityIndicatorManager sharedManager] pop];
-            WMFLocationSearchResults *results = [[WMFLocationSearchResults alloc] initWithSearchSiteURL:siteURL region:region searchTerm:searchTerm results:responseObject];
-
-            if (completion) {
-                completion(results);
-            }
-
-        }
-        failure:^(NSURLSessionDataTask *operation, NSError *error) {
-            [[MWNetworkActivityIndicatorManager sharedManager] pop];
-            if (failure) {
-                if (![[error domain] isEqualToString:NSURLErrorDomain]) {
-                    error = [NSError errorWithDomain:WMFLocationSearchErrorDomain code:WMFLocationSearchErrorCodeNoResults userInfo:@{NSLocalizedDescriptionKey: WMFLocalizedStringWithDefaultValue(@"empty-no-search-results-message", nil, nil, @"No results found", @"Shown when there are no search results")}];
-                }
-                failure(error);
-            }
-        }];
-}
-
-@end
-
-#pragma mark - Internal Class Implementations
-
-@implementation WMFLocationSearchRequestParameters : NSObject
-@end
-
-@implementation WMFLocationSearchRequestSerializer
-
-- (nullable NSURLRequest *)requestBySerializingRequest:(NSURLRequest *)request
-                                        withParameters:(nullable id)parameters
-                                                 error:(NSError *__autoreleasing *)error {
-    NSDictionary *serializedParams = [self serializedParams:(WMFLocationSearchRequestParameters *)parameters];
-    return [super requestBySerializingRequest:request withParameters:serializedParams error:error];
-}
-
-- (NSDictionary *)serializedParams:(WMFLocationSearchRequestParameters *)params {
-    if (params.region.radius >= 10000 || params.searchTerm || params.sortStyle != WMFLocationSearchSortStyleNone) {
+- (NSDictionary *)params:(CLCircularRegion *)region searchTerm:(nullable NSString *)searchTerm resultLimit:(NSUInteger)numberOfResults sortStyle:(WMFLocationSearchSortStyle)sortStyle {
+    if (region.radius >= 10000 || searchTerm || sortStyle != WMFLocationSearchSortStyleNone) {
         NSMutableArray<NSString *> *gsrSearchArray = [NSMutableArray arrayWithCapacity:2];
-        if (params.searchTerm) {
-            [gsrSearchArray addObject:params.searchTerm];
+        if (searchTerm) {
+            [gsrSearchArray addObject:searchTerm];
         }
-        CLLocationDistance radius = MAX(1, ceil(params.region.radius));
-        NSString *nearcoord = [NSString stringWithFormat:@"nearcoord:%.0fm,%.3f,%.3f", radius, params.region.center.latitude, params.region.center.longitude];
+        CLLocationDistance radius = MAX(1, ceil(region.radius));
+        NSString *nearcoord = [NSString stringWithFormat:@"nearcoord:%.0fm,%.3f,%.3f", radius, region.center.latitude, region.center.longitude];
         [gsrSearchArray addObject:nearcoord];
         NSString *gsrsearch = [gsrSearchArray componentsJoinedByString:@" "];
         NSMutableDictionary<NSString *, NSObject *> *serializedParams = [NSMutableDictionary dictionaryWithDictionary:@{
             @"action": @"query",
             @"prop": @"coordinates|pageimages|description|pageprops",
             @"coprop": @"type|dim",
-            @"colimit": @(params.numberOfResults),
+            @"colimit": @(numberOfResults),
             @"generator": @"search",
             @"gsrsearch": gsrsearch,
-            @"gsrlimit": @(params.numberOfResults),
+            @"gsrlimit": @(numberOfResults),
             @"piprop": @"thumbnail",
             //@"pilicense": @"any",
             @"pithumbsize": [[UIScreen mainScreen] wmf_nearbyThumbnailWidthForScale],
-            @"pilimit": @(params.numberOfResults),
-            @"ppprop": @"displaytitle|disambiguation",
+            @"pilimit": @(numberOfResults),
+            @"ppprop": @"displaytitle",
             @"format": @"json",
         }];
-        switch (params.sortStyle) {
+        switch (sortStyle) {
             case WMFLocationSearchSortStyleLinks:
                 serializedParams[@"cirrusIncLinkssW"] = @(1000);
                 break;
@@ -203,23 +131,23 @@ NSString *const WMFLocationSearchErrorDomain = @"org.wikimedia.location.search";
         return serializedParams;
     } else {
         NSString *coords =
-            [NSString stringWithFormat:@"%f|%f", params.region.center.latitude, params.region.center.longitude];
+            [NSString stringWithFormat:@"%f|%f", region.center.latitude, region.center.longitude];
         return @{
             @"action": @"query",
             @"prop": @"coordinates|pageimages|description|pageprops|extracts",
             @"coprop": @"type|dim",
-            @"colimit": @(params.numberOfResults),
+            @"colimit": @(numberOfResults),
             @"pithumbsize": [[UIScreen mainScreen] wmf_nearbyThumbnailWidthForScale],
-            @"pilimit": @(params.numberOfResults),
+            @"pilimit": @(numberOfResults),
             //@"pilicense": @"any",
-            @"ppprop": @"displaytitle|disambiguation",
+            @"ppprop": @"displaytitle",
             @"generator": @"geosearch",
             @"ggscoord": coords,
             @"codistancefrompoint": coords,
-            @"ggsradius": @(params.region.radius),
-            @"ggslimit": @(params.numberOfResults),
+            @"ggsradius": @(region.radius),
+            @"ggslimit": @(numberOfResults),
             @"exintro": @YES,
-            @"exlimit": @(params.numberOfResults),
+            @"exlimit": @(numberOfResults),
             @"explaintext": @"",
             @"exchars": @(WMFNumberOfExtractCharacters),
             @"format": @"json"

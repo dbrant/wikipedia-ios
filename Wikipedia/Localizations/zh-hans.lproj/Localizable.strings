@@ -1,10 +1,17 @@
 // Messages for Simplified Chinese (中文（简体）‎)
 // Exported from translatewiki.net
 // Author: A Chinese Wikipedian
+// Author: A Retired User
+// Author: A2B4C
+// Author: Angrydog001
 // Author: Chixvv
+// Author: Cwek
 // Author: Davidzdh
 // Author: Endermoon
+// Author: GoForceX
 // Author: Hudafu
+// Author: ITsu
+// Author: Josephine W.
 // Author: JuneAugsut
 // Author: Kuailong
 // Author: LNDDYL
@@ -18,10 +25,20 @@
 // Author: Qiyue2001
 // Author: Shizhao
 // Author: Tonylianlong
+// Author: Viztor
+// Author: VulpesVulpes825
 // Author: Wxyveronica
 // Author: Yfdyh000
+// Author: Ywang
+// Author: 予弦
+// Author: 佛壁灯
 // Author: 夢蝶葬花
+// Author: 水獭很懒
+// Author: 沈澄心
 // Author: 王庭茂
+// Author: 神樂坂秀吉
+// Author: 科劳
+// Author: 铁桶
 
 "about-content-license" = "内容许可协议";
 "about-content-license-details" = "除非另有声明，内容基于$1授权。";
@@ -46,15 +63,15 @@
 "about-translators-details" = "由$1的志愿者翻译";
 "about-wikimedia-foundation" = "维基媒体基金会";
 "about-wikipedia" = "维基百科";
-"abuse-filter-disallow-heading" = "您不能发布该编辑。请返回更改。";
-"abuse-filter-disallow-notable" = "维基百科是一部百科全书，这里只接受中立、有关注度的内容。";
-"abuse-filter-disallow-unconstructive" = "自动过滤器已认定此编辑可能不具建设性或存在破坏企图。";
-"abuse-filter-warning-blanking" = "清空条目或破坏";
-"abuse-filter-warning-caps" = "输入全部大写字母";
+"abuse-filter-disallow-heading" = "您不能发布该编辑";
+"abuse-filter-disallow-unconstructive" = "自动过滤器已认定此编辑可能不具建设性或存在破坏企图。请返回并检查您的编辑。";
+"abuse-filter-warning-blanking" = "删除段落或全文条目";
+"abuse-filter-warning-caps" = "全部大写文本";
 "abuse-filter-warning-heading" = "这看起来是没有建设性的编辑，您确定要发布它？";
 "abuse-filter-warning-irrelevant" = "无关外部链接或图片";
 "abuse-filter-warning-repeat" = "重复字符";
-"abuse-filter-warning-subheading" = "您的编辑可能包含以下情况之一：";
+"abuse-filter-warning-spam" = "条目添加了垃圾信息";
+"abuse-filter-warning-subheading" = "您的编辑可能包含：";
 "account-creation-captcha-cannot-see-image" = "看不到图片么？$1";
 "account-creation-captcha-obtaining" = "获得新验证码...";
 "account-creation-captcha-request-account" = "请求账户。";
@@ -67,25 +84,37 @@
 "account-creation-passwords-mismatched" = "密码字段不匹配。";
 "account-creation-saving" = "正在保存...";
 "account-creation-title" = "创建新账户";
+"account-group-title" = "您的帐户";
+"account-talk-page-title" = "你的讨论页";
+"account-talk-preferences-auto-sign-discussions" = "自动签名讨论";
+"account-talk-preferences-title" = "讨论页面参数设置";
 "action-add-to" = "添加至…";
 "action-add-to-reading-list" = "添加至阅读列表";
 "action-add-to-reading-list-short" = "添加至列表";
 "action-cancel" = "取消";
+"action-find-in-page" = "在页面中查找";
+"action-language-accessibility" = "更改语言";
 "action-move-to" = "移动至…";
 "action-move-to-reading-list" = "移动至阅读列表";
 "action-read" = "阅读";
+"action-redo" = "重做";
 "action-remove" = "移除";
+"action-replace" = "替换";
+"action-replace-all" = "替换所有";
+"action-retry" = "重试";
 "action-save" = "保存";
 "action-saved" = "已保存";
 "action-saved-accessibility" = "已保存。激活以取消保存。";
 "action-saved-accessibility-notification" = "条目已保存供稍后使用";
 "action-share" = "分享";
+"action-share-accessibility" = "分享";
 "action-sort" = "排序";
+"action-undo" = "撤销";
 "action-unsave" = "未保存";
 "action-unsaved-accessibility-notification" = "条目未保存";
 "action-update" = "更新";
 "add-articles-to-reading-list" = "添加{{PLURAL:$1|$1个条目}}至阅读列表";
-"alert-no-internet" = "当前无网络连接";
+"add-citation-title" = "添加引用";
 "announcements-dismiss" = "关闭";
 "app-store-keywords" = "维基百科、参考资料、wiki、百科全书、信息、知识、研究、详细信息、探索、学习";
 "app-store-release-notes" = "完全可以自定义，并更容易阅读探索订阅源。本地化、性能改进与错误修复。";
@@ -94,7 +123,7 @@
 "appearance-settings-adjust-text-sizing" = "调整条目文本大小";
 "appearance-settings-expand-tables" = "展开表格";
 "appearance-settings-expand-tables-footer" = "将所有条目内的表格设置为默认开启，包括快速预览、参考资料、注释和外部链接。";
-"appearance-settings-image-dimming-footer" = "在夜间主题中减小图片的不透明度";
+"appearance-settings-image-dimming-footer" = "在黑色或者暗色调主题中减小图片的不透明度";
 "appearance-settings-reading-themes" = "正在读取主题";
 "appearance-settings-set-automatic-table-opening" = "表格设置";
 "appearance-settings-text-sizing-example-text" = "拖动上方滑块以更改条目文本大小。利用您系统的文本大小以更改应用中其他文本区域的大小。";
@@ -110,11 +139,8 @@
 "article-save-error-not-enough-space" = "您的设备没有足够空间保存此条目";
 "article-share" = "分享";
 "article-toolbar-reading-themes-controls-toolbar-item" = "阅读主题控制";
-"article-unable-to-load-article" = "无法加载条目。";
-"article-unable-to-load-section" = "无法载入此章节。请尝试刷新条目以查看问题是否解决。";
 "back-button-accessibility-label" = "返回";
 "back-button-popover-title" = "点击返回";
-"button-done" = "完成";
 "button-next" = "下一个";
 "button-ok" = "确定";
 "button-publish" = "发布";
@@ -125,15 +151,15 @@
 "button-saved-remove" = "从已保存内容中移除";
 "button-skip" = "跳过";
 "cancel" = "取消";
-"cc-by-sa-3.0" = "CC BY-SA 3.0";
 "cc-zero" = "知识共享CC0";
+"clear-title-accessibility-label" = "清空";
 "close-button-accessibility-label" = "关闭";
 "compass-direction" = "$1点钟";
 "continue-reading-empty-description" = "浏览维基百科以阅读更多条目吧";
 "continue-reading-empty-title" = "没有最近阅读条目";
 "description-add-link-title" = "添加标题描述";
 "description-add-title" = "添加描述";
-"description-edit-for-article" = "$1的标题说明";
+"description-edit-for-article" = "$1的标题描述";
 "description-edit-learn-more" = "了解更多";
 "description-edit-length-warning" = "$1 / $2";
 "description-edit-license" = "通过更改标题描述，我同意$1，并在$2的许可下不可撤销地发布我的稿件。";
@@ -167,17 +193,92 @@
 "description-welcome-descriptions-title" = "标题描述";
 "description-welcome-promise-title" = "通过开始，我保证不滥用这个特性。";
 "description-welcome-start-editing-button" = "开始编辑";
+"diff-compare-header-from-info-heading" = "发件人：";
+"diff-compare-header-heading" = "比较不同修订版本";
+"diff-compare-header-to-info-heading" = "收件人：";
+"diff-compare-title" = "比较不同时间的版本";
+"diff-context-lines-collapsed-button-title" = "显示";
+"diff-context-lines-expanded-button-title" = "隐藏";
+"diff-multi-line-format" = "第$1-$2行";
+"diff-paragraph-moved" = "已移动段落";
+"diff-paragraph-moved-direction-down" = "向下";
+"diff-paragraph-moved-direction-up" = "向上";
+"diff-paragraph-moved-distance-section" = "{{PLURAL:$1|$1个段落|$1个段落}}";
+"diff-revision-error-title" = "无法加载修订版本数据";
+"diff-single-header-editor-number-edits-format" = "{{PLURAL:$1|$1次编辑}}";
+"diff-single-header-editor-title" = "编辑者信息";
+"diff-single-header-summary-heading" = "编辑摘要";
+"diff-single-line-format" = "第$1行";
+"diff-thanks-anonymous-no-thanks" = "匿名用户不能被感谢";
+"diff-thanks-login-title" = "登录以发送感谢";
+"diff-thanks-send-button-title" = "发送感谢";
+"diff-thanks-send-title" = "公开发送感谢";
+// Fuzzy
+"diff-thanks-sent" = "您的感谢被发送给$1";
+"diff-thanks-sent-already" = "您已为此次编辑发送感谢";
+"diff-thanks-sent-cannot-unsend" = "感谢无法撤回";
 "dim-images" = "使图片变暗";
+"edit-bold-accessibility-label" = "添加加粗格式";
+"edit-bold-remove-accessibility-label" = "移除加粗格式";
+"edit-clear-formatting-accessibility-label" = "移除格式";
+"edit-comment-accessibility-label" = "添加评论语法";
+"edit-comment-remove-accessibility-label" = "移除评论语法";
+"edit-decrease-indent-depth-accessibility-label" = "减少缩进深度";
+"edit-direction-down-accessibility-label" = "向下移动光标";
+"edit-direction-left-accessibility-label" = "向左移动光标";
+"edit-direction-right-accessibility-label" = "向右移动光标";
+"edit-direction-up-accessibility-label" = "向上移动光标";
+"edit-increase-indent-depth-accessibility-label" = "增加缩进深度";
+"edit-indent-accessibility-label" = "缩进当前行";
+"edit-italic-accessibility-label" = "添加斜体格式";
+"edit-italic-remove-accessibility-label" = "移除斜体格式";
+"edit-link-accessibility-label" = "添加链接语法";
+"edit-link-display-text-title" = "显示文字";
+"edit-link-link-target-title" = "链接目标";
+"edit-link-remove-accessibility-label" = "移除链接语法";
+"edit-link-remove-link-title" = "移除链接";
+"edit-link-title" = "编辑链接";
+"edit-menu-item" = "编辑";
+"edit-minor-learn-more-text" = "了解更多关于小编辑的信息";
+"edit-minor-text" = "标记为小编辑";
+"edit-ordered-list-accessibility-label" = "创建当前行的有序列表";
+"edit-ordered-list-remove-accessibility-label" = "从当前行中移除有序列表";
+"edit-published" = "已发布编辑";
+"edit-published-subtitle" = "您刚刚使得维基百科变得更好";
+"edit-reference-accessibility-label" = "添加参考语法";
+"edit-reference-remove-accessibility-label" = "移除参考语法";
+"edit-signature-accessibility-label" = "添加签名语法";
+"edit-signature-remove-accessibility-label" = "移除签名语法";
+"edit-strikethrough-accessibility-label" = "添加删除线";
+"edit-strikethrough-remove-accessibility-label" = "移除删除线";
+"edit-style-table-view-title" = "样式";
+"edit-subscript-accessibility-label" = "添加下标格式";
+"edit-subscript-remove-accessibility-label" = "移除下标格式";
+"edit-summary-add-summary-text" = "添加编辑摘要";
 "edit-summary-choice-fixed-grammar" = "已确定语法";
 "edit-summary-choice-fixed-typos" = "修正笔误";
 "edit-summary-choice-linked-words" = "已添加链接";
-"edit-summary-choice-other" = "其他";
-"edit-summary-field-placeholder-text" = "您改进条目的其他方法";
-"edit-summary-title" = "您如何改进条目的？";
+"edit-summary-learn-more-text" = "了解更多";
+"edit-summary-placeholder-text" = "您如何改进条目的？";
+"edit-superscript-accessibility-label" = "添加上标格式";
+"edit-superscript-remove-accessibility-label" = "移除下标格式";
+"edit-template-accessibility-label" = "添加模板语法";
+"edit-template-remove-accessibility-label" = "移除模板语法";
+"edit-text-formatting-accessibility-label" = "显示文本格式菜单";
+"edit-text-formatting-table-view-title" = "文本格式";
+"edit-text-size-table-view-title" = "文字大小";
+"edit-text-style-accessibility-label" = "显示文本样式菜单";
+"edit-underline-accessibility-label" = "添加下划线";
+"edit-underline-remove-accessibility-label" = "移除下划线";
+"edit-unordered-list-accessibility-label" = "创建当前行的无序列表";
+"edit-unordered-list-remove-accessibility-label" = "从当前行中移除无序列表";
+"edit-watch-list-learn-more-text" = "了解更多有关监视列表的信息";
+"edit-watch-this-page-text" = "监视本页";
+"empty-diff-compare-title" = "版本间无差异";
+"empty-diff-single-title" = "没有可以观察到的变化";
 "empty-no-article-message" = "对不起，无法加载条目";
 "empty-no-feed-action-message" = "您仍然可以阅读保存的页面";
 "empty-no-feed-message" = "当您有网络连接时，您可以查看您推荐的条目";
-"empty-no-feed-title" = "没有网络连接";
 "empty-no-history-message" = "在此记录您的阅读经历";
 "empty-no-history-title" = "没有要显示的历史";
 "empty-no-reading-lists-message" = "创建旅行的地点、感兴趣的话题以及更多事物的列表";
@@ -187,7 +288,6 @@
 "empty-no-saved-pages-message" = "保存页面以便日后查看，即便在离线时";
 "empty-no-saved-pages-title" = "尚无保存的页面";
 "empty-no-search-results-message" = "找不到结果";
-"error-generic-description" = "发生意外错误。";
 "error-generic-recovery-suggestion" = "请一会儿再试";
 "error-unknown" = "发生未知错误";
 "explore-another-random" = "其他随机条目";
@@ -213,13 +313,15 @@
 "explore-feed-preferences-feed-card-visibility-all-languages-on" = "在所有";
 "explore-feed-preferences-feed-card-visibility-global-cards-on" = "开";
 "explore-feed-preferences-feed-card-visibility-languages-count" = "在$1";
+// Fuzzy
 "explore-feed-preferences-feed-cards-hidden-title" = "所有%@点卡片已隐藏";
 "explore-feed-preferences-global-card-footer-text" = "此卡片并非语言特定，关闭此卡片将从您的探索订阅源中移除它。";
 "explore-feed-preferences-global-cards-description" = "非语言特定卡片";
 "explore-feed-preferences-global-cards-subtitle" = "非语言特定";
 "explore-feed-preferences-global-cards-title" = "全域卡片";
 "explore-feed-preferences-hide-card-action-title" = "隐藏此卡片";
-"explore-feed-preferences-hide-feed-cards-action-title" = "隐藏所有%@个卡片";
+// Fuzzy
+"explore-feed-preferences-hide-feed-cards-action-title" = "隐藏所有的 “%@” 卡片";
 "explore-feed-preferences-in-the-news-description" = "有关当前活动的条目";
 "explore-feed-preferences-languages-footer-text" = "从您所有语言中隐藏所有探索订阅源卡片将关闭探索标签。";
 "explore-feed-preferences-on-this-day-description" = "这一天历史上的活动";
@@ -254,7 +356,6 @@
 "explore-feed-preferences-turn-on-explore-tab-action-title" = "打开探索";
 "explore-feed-preferences-turn-on-explore-tab-message" = "这将替换设置标签为探索标签，您可以在探索标签上方通过点按齿轮图标访问设置";
 "explore-feed-preferences-turn-on-explore-tab-title" = "打开探索标签么？";
-"explore-feed-preferences-undo-customization" = "撤销";
 "explore-hide-card-prompt" = "隐藏此卡片";
 "explore-main-page-description" = "维基媒体项目的首页";
 "explore-main-page-heading" = "维基百科今日";
@@ -277,9 +378,10 @@
 "explore-randomizer" = "随机产生条目器";
 "feed-news-notification-button-text" = "打开通知";
 "feed-news-notification-text" = "当条目在新闻中热门时，启用维基百科通知。";
+"fetcher-error-generic" = "出错了！请稍后重试。";
+"fetcher-error-unexpected-response" = "应用从服务器收到了一个意外的响应代码，请稍后重试。";
 "field-alert-captcha-invalid" = "无效验证码";
 "field-alert-password-confirm-mismatch" = "密码不匹配";
-"field-alert-password-invalid" = "无效密码";
 "field-alert-token-invalid" = "无效代码";
 "field-alert-username-unavailable" = "用户名不可用";
 "field-backup-token-title" = "备份代码";
@@ -299,26 +401,17 @@
 "field-token-title" = "验证码";
 "field-username-placeholder" = "输入用户名";
 "field-username-title" = "用户名";
-"find-in-page-button-label" = "在页面中查找";
-"find-in-page-number-matches" = "$1 / $2";
+"find-infolabel-number-matches" = "$1 / $2";
 "forgot-password-button-title" = "重置";
 "forgot-password-email-sent" = "已发送一封带有密码重置说明的电子邮件";
 "forgot-password-instructions" = "在下方输入其中一个字段以通过电子邮件接收密码重置说明";
 "forgot-password-title" = "重置密码";
 "forgot-password-username-or-email-title" = "或";
-"gfdl" = "GFDL";
 "history-clear-all" = "清除";
 "history-clear-cancel" = "取消";
 "history-clear-confirmation-heading" = "您确定要删除所有您最近的项目么？";
 "history-clear-delete-all" = "是的，删除全部";
 "history-title" = "历史";
-"hockeyapp-alert-always-send" = "总是发送";
-"hockeyapp-alert-do-not-send" = "不要发送";
-"hockeyapp-alert-privacy" = "$1隐私";
-"hockeyapp-alert-question" = "您想要将崩溃报告发送至$1，这样维基媒体基金会可以复查您的崩溃么？";
-"hockeyapp-alert-question-with-response-field" = "您想要将崩溃报告发送至$1，这样维基媒体基金会可以复查您的崩溃么？请描述崩溃发生时出现了什么现象：";
-"hockeyapp-alert-send-report" = "发送报告";
-"hockeyapp-alert-title" = "抱歉，应用程序上次发生了崩溃";
 "home-button-explore-accessibility-label" = "维基百科，返回到探索";
 "home-button-history-accessibility-label" = "维基百科，返回到历史";
 "home-button-saved-accessibility-label" = "维基百科，返回到已保存";
@@ -331,7 +424,6 @@
 "home-themes-prompt" = "从条目工具栏或在您的用户设置中，调整您的阅读参数设置以获取更舒适的阅读体验，这包括文字大小及主题。";
 "home-title" = "探索";
 "home-title-accessibility-label" = "维基百科，滚动到探索顶部";
-"icon-shortcut-continue-reading-title" = "继续阅读";
 "icon-shortcut-nearby-title" = "附近条目";
 "icon-shortcut-random-title" = "随机条目";
 "icon-shortcut-search-title" = "搜索维基百科";
@@ -345,11 +437,23 @@
 "in-the-news-title" = "新闻动态";
 "info-box-close-text" = "关闭";
 "info-box-title" = "快速预览";
+"insert-link-title" = "插入链接";
+"insert-media-caption-description" = "显示在所有读者的项目旁边的标签。";
+"insert-media-image-position-setting-center" = "中心";
+"insert-media-image-position-setting-none" = "无";
+"insert-media-image-position-setting-right" = "对";
+"insert-media-image-preview-select-image-action-title" = "选择图像";
+"insert-media-image-type-setting-basic" = "基本的";
+"insert-media-uploaded-image-title" = "上传图像";
 "languages-settings-title" = "语言";
 "languages-title" = "更改语言";
 "languages-wikipedia" = "维基百科语言";
 "license-footer-name" = "CC BY-SA 3.0";
 "license-footer-text" = "除非另有说明，内容基于$1授权。";
+"logged-out-continue-without-logging-in-button-title" = "在没有登入时继续";
+"logged-out-log-back-in-button-title" = "重新登录您的账户";
+"logged-out-subtitle" = "验证你的账户时出现了问题。请重新登录以同步或编辑你的阅读列表。";
+"logged-out-title" = "您已登出";
 "login-forgot-password" = "忘记了您的密码？";
 "login-join-wikipedia" = "加入维基百科。";
 "login-no-account" = "没有账户？$1";
@@ -360,11 +464,9 @@
 "main-menu-account-logout-are-you-sure" = "您确定要退出么？";
 "main-menu-account-logout-cancel" = "取消";
 "main-menu-account-title-logged-in" = "以$1登录";
-"main-menu-debug-crash" = "崩溃";
 "main-menu-debug-tweaks" = "开发人员设置";
 "main-menu-heading-debug" = "调试";
 "main-menu-heading-legal" = "隐私和条款";
-"main-menu-heading-zero" = "维基百科零";
 "main-menu-nearby" = "附近";
 "main-menu-privacy-policy" = "隐私政策";
 "main-menu-rate-app" = "评价应用程序";
@@ -383,6 +485,9 @@
 "new-password-instructions" = "您已通过临时密码登录。要完成登录，请在此设置一个新密码。";
 "new-password-title" = "设置您的密码";
 "no-email-account-alert" = "请在您的设备上设置一个电子邮件地址，并重试。";
+"no-internet-connection" = "无互联网连接";
+"no-internet-connection-article-reload" = "此条目的新版本可用，但由于无互联网连接而无法加载";
+"no-internet-connection-article-reload-button" = "返回至最近保存的版本";
 "number-billions" = "$1十亿";
 "number-millions" = "$1百万";
 "number-thousands" = "$1千";
@@ -392,12 +497,25 @@
 "on-this-day-footer-with-event-count" = "今天的$1个更多历史活动";
 "on-this-day-sub-title-for-date-from-language-wikipedia" = "$1来自$2维基百科";
 "on-this-day-title" = "历史上的今天";
-"open-link-cancel" = "取消";
 "original-tab-button-popover-description" = "点按“W”以返回您开始来自的标签";
+// Fuzzy
 "page-edit-history" = "完整编辑历史";
-"page-history-title" = "条目历史";
+"page-history-anonymous-edits" = "匿名编辑";
+"page-history-bot-edits" = "机器人编辑";
+"page-history-compare-title" = "比较";
+"page-history-minor-edits" = "小编辑";
+// Fuzzy
+"page-history-revision-author-accessibility-label" = "作者：%@";
+"page-history-revision-history-title" = "版本历史";
+"page-history-revision-minor-edit-accessibility-label" = "小编辑";
+"page-history-revision-size-diff-addition" = "已添加 {{PLURAL:$1|$1 byte|$1字节}}";
+"page-history-revision-size-diff-subtraction" = "已删除 {{PLURAL:$1|$1 byte|$1字节}}";
+"page-history-revisions-comparison-warning" = "您只能选择两个修订版本";
+"page-history-stats-text" = "自$2共{{PLURAL:$1|$1次编辑}}";
+"page-history-user-edits" = "用户编辑数";
 "page-issues" = "页面问题";
-"page-last-edited" = "编辑于$1天前";
+// Fuzzy
+"page-last-edited" = "{{PLURAL:$1|0=编辑于今天|1=编辑于昨天|编辑于 $1 天前}}";
 "page-location" = "在地图上查看";
 "page-protected-autoconfirmed" = "此页面已半保护。";
 "page-protected-can-not-edit" = "您没有权限编辑此页";
@@ -407,6 +525,9 @@
 "page-read-in-other-languages" = "在$1种其他语言中可用";
 "page-similar-titles" = "相似页面";
 "page-talk-page" = "查看讨论页";
+// Fuzzy
+"panel-compare-revisions-text" = "通过比较不同修订版本，可以看到条目随时间的变化。如果您比较两个不同修订版本，可以看到两个版本之间的区别。";
+"panel-compare-revisions-title" = "比较不同修订版本";
 "pictured" = "图片中";
 "places-accessibility-clear-saved-searches" = "清除保存的搜索";
 "places-accessibility-group" = "$1个条目";
@@ -461,7 +582,7 @@
 "reading-list-deleted-accessibility-notification" = "阅读列表已删除";
 "reading-list-do-not-keep-button-title" = "否，从设备中删除条目";
 "reading-list-entry-limit-exceeded-message" = "请减少您在此列表中的条目数至$1以恢复同步所有此列表的条目。";
-"reading-list-entry-limit-exceeded-title" = "您已超过每账户$1个条目限制。";
+"reading-list-entry-limit-exceeded-title" = "您已超过每账户$1个条目的限制。";
 "reading-list-entry-limit-reached" = "{{PLURAL:$1|条目}}不能添加到此列表。您已超过每个$3的阅读列表$2个条目限制";
 "reading-list-exists-with-same-name" = "阅读列表名称已被使用";
 "reading-list-generic-error" = "更新您的阅读列表时发生意外错误。";
@@ -474,7 +595,7 @@
 "reading-list-limit-hit-for-unsorted-articles-subtitle" = "限制5000个未分类条目。请将您的现有条目排序成列表以继续同步未分类条目。";
 "reading-list-limit-hit-for-unsorted-articles-title" = "未分类条目的限制触发";
 "reading-list-list-limit-exceeded-message" = "此阅读列表（及保存至此的条目）将不会同步，请减少您的列表数量至$1以恢复同步此列表。";
-"reading-list-list-limit-exceeded-title" = "您已超过每账户$1个阅读列表限制。";
+"reading-list-list-limit-exceeded-title" = "您已超过每账户$1个阅读列表的限制。";
 "reading-list-list-limit-reached" = "您已超过每账户$1个阅读列表限制";
 "reading-list-login-button-title" = "登录以同步您保存的条目";
 "reading-list-login-or-create-account-button-title" = "登录或创建账户";
@@ -512,6 +633,7 @@
 "reading-lists-default-list-title" = "已保存";
 "reading-lists-delete-reading-list-alert-message" = "此操作不能撤销。任何只添加至{{PLURAL:$1此|这些}}列表的条目将被取消保存。";
 "reading-lists-delete-reading-list-alert-title" = "删除{{PLURAL:$1|列表}}么？";
+// Fuzzy
 "reading-lists-large-sync-completed" = "$1个条目和$2各阅读列表已从您的账户同步";
 "reading-lists-list-not-synced-limit-exceeded" = "列表未同步，超过限制";
 "reading-lists-sort-saved-articles" = "排序保存的条目";
@@ -524,21 +646,31 @@
 "reading-themes-controls-accessibility-sepia-theme-button" = "棕黑主题";
 "reading-themes-controls-accessibility-text-size-slider" = "文字大小滑块";
 "reference-title" = "参考文献$1";
-"relative-date-days-ago" = "{{PLURAL:$1|0=今天|昨天|$1天前}}";
+"relative-date-days-ago" = "{{PLURAL:$1|0=今天|昨天|$1 天前}}";
+"relative-date-hours-abbreviated" = "$1小时";
 "relative-date-hours-ago" = "{{PLURAL:$1|0=最近|$1小时前}}";
+"relative-date-hours-ago-abbreviated" = "$1小时前";
+"relative-date-minutes-abbreviated" = "$1分钟";
 "relative-date-minutes-ago" = "{{PLURAL:$1|0=刚刚|$1分钟前}}";
-"relative-date-years-ago" = "{{PLURAL:$1|0=今年|去年|$1年前}}";
-"relogin-failed-retry-login-button-title" = "尝试重新登录";
-"relogin-failed-stay-logged-out-button-title" = "保持我的退出状态";
-"relogin-failed-subtitle" = "您的会话可能已过期，或之前的凭据日志不再有效。";
-"relogin-failed-title" = "无法重新登录";
+"relative-date-minutes-ago-abbreviated" = "$1分钟前";
+"relative-date-seconds-abbreviated" = "$1秒";
+"relative-date-seconds-ago-abbreviated" = "$1秒前";
+"relative-date-years-ago" = "{{PLURAL:$1|0=今年|去年|$1 年前}}";
 "request-feedback-on-error" = "应用程序遇到问题，需要我们开发人员了解更多关于它的信息。请在此点按以向我们发送带有错误详情的电子邮件。";
+"reverted-edit-back-to-article-button-title" = "返回到文章";
+"reverted-edit-notification-body" = "你对文章“$1”的编辑已由 $2 还原";
+"reverted-edit-notification-read-more-action-title" = "阅读更多";
+"reverted-edit-possible-reasons" = "- 你的编辑并未遵循编辑指引： $1 ；\n\n - 你似乎在试验性地编辑或在恶意破坏词条。";
+"reverted-edit-possible-reasons-subtitle" = "我们知道您做出了最大的努力，但有位复核者还是对您的翻译有顾虑。您的编辑被回退的原因可能包括：";
+"reverted-edit-thanks-for-editing-title" = "感谢编辑维基百科！";
+"reverted-edit-title" = "编辑的版本被退回";
+"reverted-edit-view-guidelines-text" = "阅读编辑指引";
 "saved-all-articles-title" = "所有条目";
 "saved-default-reading-list-tag" = "此列表不能删除";
 "saved-pages-image-download-error" = "下载用于该保存页面的图片失败。";
 "saved-pages-progress-syncing" = "条目下载正在进行...";
 "saved-reading-lists-title" = "阅读列表";
-"saved-search-default-text" = "搜索";
+"saved-search-default-text" = "在已保存的文章中检索";
 "saved-title" = "已保存";
 "saved-unsave-article-and-remove-from-reading-lists-message" = "取消保存{{PLURAL:$1|此|这些}}条目将从所有相关阅读列表中移除";
 "saved-unsave-article-and-remove-from-reading-lists-title" = "取消保存{{PLURAL:$1|条目}}么？";
@@ -555,6 +687,7 @@
 "search-recent-title" = "最近搜索";
 "search-result-redirected-from" = "重定向自：$1";
 "search-title" = "搜索";
+"settings-account" = "账户";
 "settings-appearance" = "阅读参数设置";
 "settings-clear-cache" = "清空缓存的数据";
 "settings-clear-cache-are-you-sure-message" = "清空缓存的数据将腾出约$1空间。这将不会删除您保存的页面。";
@@ -593,7 +726,6 @@
 "share-a-fact-made-with" = "通过维基百科应用制作";
 "share-article-name-on-wikipedia" = "“$1”在@Wikipedia：";
 "share-building" = "建立分享预览卡…";
-"share-custom-menu-item" = "分享...";
 "share-default-format" = "“$1”来自“$2”：$3";
 "share-email-format" = "“$1”\n\n来自“$2”\n\n$3";
 "share-get-directions-in-maps" = "获取导航";
@@ -611,10 +743,28 @@
 "table-of-contents-close-accessibility-hint" = "关闭";
 "table-of-contents-close-accessibility-label" = "关闭目录";
 "table-of-contents-heading" = "内容";
+"table-of-contents-hide-button-label" = "隐藏目录";
 "table-title-other" = "更多信息";
+"talk-page-add-discussion-accessibility-label" = "添加讨论";
+"talk-page-discussion-read-accessibility-label" = "已读";
+"talk-page-discussion-read-ipa-accessibility-attribute" = "i˨˩˦tu˧˥";
+"talk-page-discussion-unread-accessibility-label" = "未读";
+"talk-page-discussion-unread-ipa-accessibility-attribute" = "weɪ˥˩tu˧˥";
+"talk-page-info-active-conversations-generic" = "维基百科上的积极对话";
+"talk-page-new-banner-subtitle" = "记住，我们在这里都是人类";
+"talk-page-new-reply-success-text" = "你的答复被成功地发表了";
+"talk-page-new-subject-placeholder-text" = "主题";
+"talk-page-new-subject-textfield-accessibility-label" = "主题";
+"talk-page-new-topic-success-text" = "您的讨论已成功发布";
+"talk-page-new-topic-title" = "新讨论";
+"talk-page-reply-title" = "回复";
+"talk-page-title-article-talk" = "条目讨论";
+"talk-page-title-user-talk" = "用户讨论";
+"talk-page-topic-title" = "讨论";
 "theme-black-display-name" = "黑暗";
 "theme-dark-display-name" = "夜间";
 "theme-default-display-name" = "默认";
+"theme-light-display-name" = "日间";
 "theme-sepia-display-name" = "棕黑";
 "top-read-header-generic" = "维基百科";
 "top-read-header-with-language" = "$1维基百科";
@@ -624,6 +774,7 @@
 "two-factor-login-title" = "登录您的账户";
 "two-factor-login-with-backup-code" = "使用您的任一备份代码";
 "two-factor-login-with-regular-code" = "使用验证码";
+"unknown-generic-text" = "未知";
 "view-in-browser-footer-link" = "在浏览器查看条目";
 "welcome-exploration-explore-feed-description" = "来自我们社群的推荐阅读和每日条目";
 "welcome-exploration-explore-feed-title" = "探索订阅";
@@ -650,29 +801,19 @@
 "welcome-send-data-learn-more" = "了解更多关于数据收集";
 "welcome-send-data-sub-title" = "通过让维基媒体基金会知道您是如何使用来协助改善应用程序。收集的数据都是匿名的。";
 "welcome-volunteer-send-usage-reports" = "发送使用情况报告";
-"wikitext-download-failed" = "无法获取最新的版本。";
-"wikitext-download-success" = "内容已加载。";
 "wikitext-downloading" = "正在加载内容...";
 "wikitext-preview-changes" = "正在获取您更改的预览…";
 "wikitext-preview-changes-none" = "没有可供预览的更改";
+"wikitext-preview-link-external-preview-title" = "外部链接";
 "wikitext-preview-link-preview-description" = "此链接引导至“$1”";
 "wikitext-preview-link-preview-title" = "链接预览";
+"wikitext-preview-save-changes-title" = "保存更改";
 "wikitext-upload-captcha-error" = "验证码验证错误。";
 "wikitext-upload-captcha-needed" = "需要验证码确认。";
 "wikitext-upload-result-unknown" = "无法确定wikitext上传结果。";
 "wikitext-upload-save" = "正在发布...";
+"wikitext-upload-save-anonymously-or-login" = "编者将显示为您设备的 IP 地址。若您$1登录$2则可获得隐私保护。";
 "wikitext-upload-save-anonymously-warning" = "编辑将作为您设备的IP地址发表。如果您$1您将拥有更多隐私。";
 "wikitext-upload-save-sign-in" = "登录";
-"wikitext-upload-save-terms-cc-by-sa-and-gfdl" = "通过发布更改，您同意$1并同意将您的贡献根据$2和$3许可协议发布。";
+"wikitext-upload-save-terms-and-licenses" = "发布更改即代表您同意$1使用条款$2及以$3CC BY-SA 3.0$4与$5GFDL$6协议发布您的贡献。您同意超链接或网页链接即代表知识共享协议所规定的署名。";
 "wikitext-upload-save-terms-name" = "使用条款";
-"zero-charged-verbiage" = "维基百科零已关闭";
-"zero-charged-verbiage-extended" = "载入其他条目将可能产生流量费用。已保存条目会离线存储并且免流量费用。";
-"zero-free-verbiage" = "来自您的移动运营商的免费维基百科访问（并减免数据流量费用）";
-"zero-interstitial-cancel" = "留在这里";
-"zero-interstitial-continue" = "离开";
-"zero-interstitial-leave-app" = "可能产生流量费用。继续访问外部站点吗？";
-"zero-interstitial-title" = "离开维基百科零";
-"zero-learn-more" = "此维基百科应用程序可免流量费用。";
-"zero-learn-more-learn-more" = "阅读更多";
-"zero-learn-more-no-thanks" = "解除";
-"zero-warn-when-leaving" = "离开Zero时警告";

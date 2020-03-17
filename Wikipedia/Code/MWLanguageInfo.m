@@ -1,5 +1,4 @@
 #import <WMF/MWLanguageInfo.h>
-#import <WMF/MWKArticle.h>
 #import <WMF/NSURL+WMFLinkParsing.h>
 
 @implementation MWLanguageInfo
@@ -29,7 +28,7 @@
     static dispatch_once_t onceToken;
     static NSSet *rtlLanguages;
     dispatch_once(&onceToken, ^{
-        rtlLanguages = [NSSet setWithObjects:@"arc", @"arz", @"ar", @"bcc", @"bqi", @"ckb", @"dv", @"fa", @"glk", @"ha", @"he", @"khw", @"ks", @"mzn", @"pnb", @"ps", @"sd", @"ug", @"ur", @"yi", nil];
+        rtlLanguages = [NSSet setWithObjects:@"arc", @"arz", @"ar", @"azb", @"bcc", @"bqi", @"ckb", @"dv", @"fa", @"glk", @"lrc", @"he", @"khw", @"ks", @"mzn", @"nqo", @"pnb", @"ps", @"sd", @"ug", @"ur", @"yi", nil];
     });
     return rtlLanguages;
 }

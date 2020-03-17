@@ -1,6 +1,5 @@
 #import <XCTest/XCTest.h>
 #import <WMF/NSURL+WMFLinkParsing.h>
-#import "NSString+WMFPageUtilities.h"
 
 @interface NSURL_WMFLinkParsingTests : XCTestCase
 
@@ -9,7 +8,7 @@
 @implementation NSURL_WMFLinkParsingTests
 
 - (void)testCitationURL {
-    XCTAssertTrue(([[NSURL URLWithString:[NSString stringWithFormat:@"#%@-0", WMFCitationFragmentSubstring]] wmf_isWikiCitation]));
+    XCTAssertTrue(([[NSURL URLWithString:@"#cite_note-0"] wmf_isWikiCitation]));
 }
 
 - (void)testURLWithoutFragmentIsNotCitation {
@@ -42,16 +41,30 @@
 
 - (void)testInternalLinkPath {
     NSString *testPath = @"foo/bar";
-    NSURL *testURL = [[NSURL URLWithString:WMFInternalLinkPathPrefix]
+    NSURL *testURL = [[NSURL URLWithString:@"/wiki/"]
         URLByAppendingPathComponent:testPath];
     XCTAssert([[testURL wmf_pathWithoutWikiPrefix] isEqualToString:testPath]);
 }
 
 - (void)testInternalLinkPathForURLExcludesFragmentAndQuery {
     NSString *testPath = @"foo/bar";
-    NSString *testPathWithQueryAndFragment = [WMFInternalLinkPathPrefix stringByAppendingFormat:@"%@?baz#buz", testPath];
+    NSString *testPathWithQueryAndFragment = [@"/wiki/" stringByAppendingFormat:@"%@?baz#buz", testPath];
     XCTAssert([[[NSURL URLWithString:testPathWithQueryAndFragment] wmf_pathWithoutWikiPrefix] isEqualToString:testPath]);
 }
 
+- (void)testTalkPageDatabaseKeyEN {
+    NSString *urlString = @"https://en.wikipedia.org/api/rest_v1/page/talk/Username";
+    NSURL *url = [[NSURL alloc] initWithString:urlString];
+    NSString *talkPageDatabaseKey = [url wmf_databaseKey];
+    XCTAssertTrue([talkPageDatabaseKey isEqualToString:urlString]);
+    //todo: flesh this out. how do we handle sub paths after username/, query items after that, underscores for spaces, url percent encoding, etc.
+}
+
+- (void)testTalkPageDatabaseKeyES {
+    NSString *urlString = @"https://es.wikipedia.org/api/rest_v1/page/talk/Username";
+    NSURL *url = [[NSURL alloc] initWithString:urlString];
+    NSString *talkPageDatabaseKey = [url wmf_databaseKey];
+    XCTAssertTrue([talkPageDatabaseKey isEqualToString:urlString]);
+}
 
 @end

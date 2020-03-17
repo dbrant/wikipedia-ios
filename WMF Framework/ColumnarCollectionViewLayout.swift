@@ -209,7 +209,7 @@ public class ColumnarCollectionViewLayout: UICollectionViewLayout {
                 }
                 maxSection = section
             }
-            guard maxSection < info.sections.count else {
+            guard maxSection > -1 && maxSection < info.sections.count else {
                 maxNewSection = -1
                 return
             }
@@ -239,7 +239,6 @@ public class ColumnarCollectionViewLayout: UICollectionViewLayout {
                 return
             }
             attributes.zIndex = -1
-            attributes.transform = CGAffineTransform.init(scaleX: 0.75, y: 0.75)
             attributes.alpha = 0
             return
         }
@@ -275,7 +274,6 @@ public class ColumnarCollectionViewLayout: UICollectionViewLayout {
             return attributes
         }
         attributes.zIndex = -1
-        attributes.transform = CGAffineTransform.init(scaleX: 0.75, y: 0.75)
         attributes.alpha = 0
         return attributes
     }
@@ -300,3 +298,21 @@ public class ColumnarCollectionViewLayout: UICollectionViewLayout {
     }
 }
 
+extension ColumnarCollectionViewLayout: NSCopying {
+    public func copy(with zone: NSZone? = nil) -> Any {
+        let newLayout = ColumnarCollectionViewLayout()
+        newLayout.info = info
+        newLayout.oldInfo = oldInfo
+        newLayout.metrics = metrics
+        newLayout.isLayoutValid = isLayoutValid
+        newLayout.slideInNewContentFromTheTop = slideInNewContentFromTheTop
+        newLayout.animateItems = animateItems
+        
+        newLayout.maxNewSection = maxNewSection
+        newLayout.newSectionDeltaY = newSectionDeltaY
+        newLayout.appearingIndexPaths = appearingIndexPaths
+        newLayout.disappearingIndexPaths = disappearingIndexPaths
+        
+        return newLayout
+    }
+}

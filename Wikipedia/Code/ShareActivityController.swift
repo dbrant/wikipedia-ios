@@ -35,13 +35,13 @@ extension ShareableArticlesProvider where Self: UIViewController & EventLoggingE
     func share(article: WMFArticle?, articleURL: URL?, at indexPath: IndexPath, dataStore: MWKDataStore, theme: Theme, eventLoggingCategory: EventLoggingCategory? = nil, eventLoggingLabel: EventLoggingLabel? = nil, sourceView: UIView?) -> Bool {
         if let article = article {
             return createAndPresentShareActivityController(for: article, at: indexPath, dataStore: dataStore, theme: theme, eventLoggingCategory: eventLoggingCategory, eventLoggingLabel: eventLoggingLabel, sourceView: sourceView)
-        } else if let articleURL = articleURL {
-            dataStore.viewContext.wmf_updateOrCreateArticleSummariesForArticles(withURLs: [articleURL], completion: { (articles) in
-                guard let first = articles.first else {
+        } else if let articleURL = articleURL, let key = articleURL.wmf_databaseKey {
+            dataStore.articleSummaryController.updateOrCreateArticleSummaryForArticle(withKey: key) { (article, _) in
+                guard let article = article else {
                     return
                 }
-                let _ = self.createAndPresentShareActivityController(for: first, at: indexPath, dataStore: dataStore, theme: theme, eventLoggingCategory: eventLoggingCategory, eventLoggingLabel: eventLoggingLabel, sourceView: sourceView)
-            })
+                let _ = self.createAndPresentShareActivityController(for: article, at: indexPath, dataStore: dataStore, theme: theme, eventLoggingCategory: eventLoggingCategory, eventLoggingLabel: eventLoggingLabel, sourceView: sourceView)
+            }
             return true
         }
         return false
@@ -157,7 +157,7 @@ class ShareActivityController: UIActivityViewController {
         super.init(activityItems: items, applicationActivities: articleApplicationActivities)
     }
     
-    @objc init(customActivity: UIActivity, article: MWKArticle, textActivitySource: WMFArticleTextActivitySource) {
+    @objc init(customActivity: UIActivity, article: WMFArticle, textActivitySource: WMFArticleTextActivitySource) {
         var items = [Any]()
         items.append(textActivitySource)
         
@@ -173,7 +173,7 @@ class ShareActivityController: UIActivityViewController {
         super.init(activityItems: items, applicationActivities: articleApplicationActivities)
     }
     
-    @objc init(article: MWKArticle, textActivitySource: WMFArticleTextActivitySource) {
+    @objc init(article: WMFArticle, textActivitySource: WMFArticleTextActivitySource) {
         var items = [Any]()
         items.append(textActivitySource)
         
@@ -188,7 +188,7 @@ class ShareActivityController: UIActivityViewController {
         super.init(activityItems: items, applicationActivities: articleApplicationActivities)
     }
     
-    @objc init(article: MWKArticle, image: UIImage?, title: String) {
+    @objc init(article: WMFArticle, image: UIImage?, title: String) {
         var items = [Any]()
         
         items.append(title)

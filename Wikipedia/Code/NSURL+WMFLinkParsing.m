@@ -1,33 +1,12 @@
 #import <WMF/NSURL+WMFLinkParsing.h>
-#import <WMF/NSString+WMFPageUtilities.h>
 #import <WMF/NSURLComponents+WMFLinkParsing.h>
 #import <WMF/NSURL+WMFExtras.h>
+#import <WMF/WMF-Swift.h>
 
-#if WMF_USE_BETA_CLUSTER
-NSString *const WMFDefaultSiteDomain = @"wikipedia.beta.wmflabs.org";
-NSString *const WMFDefaultSiteMainDomain = @"wikipedia.org";
-#else
-NSString *const WMFDefaultSiteDomain = @"wikipedia.org";
-#endif
 NSString *const WMFCommonsHost = @"upload.wikimedia.org";
 NSString *const WMFMediaWikiDomain = @"mediawiki.org";
-NSString *const WMFInternalLinkPathPrefix = @"/wiki/";
 NSString *const WMFAPIPath = @"/w/api.php";
 NSString *const WMFEditPencil = @"WMFEditPencil";
-
-@interface NSString (WMFLinkParsing)
-
-- (BOOL)wmf_isWikiResource;
-
-@end
-
-@implementation NSString (WMFLinkParsing)
-
-- (BOOL)wmf_isWikiResource {
-    return [self containsString:WMFInternalLinkPathPrefix];
-}
-
-@end
 
 @implementation NSURL (WMFLinkParsing)
 
@@ -41,11 +20,11 @@ NSString *const WMFEditPencil = @"WMFEditPencil";
 }
 
 + (NSURL *)wmf_URLWithDefaultSiteAndlanguage:(nullable NSString *)language {
-    return [self wmf_URLWithDomain:WMFDefaultSiteDomain language:language];
+    return [self wmf_URLWithDomain:WMFConfiguration.current.defaultSiteDomain language:language];
 }
 
 + (NSURL *)wmf_URLWithDefaultSiteAndLocale:(NSLocale *)locale {
-    return [self wmf_URLWithDomain:WMFDefaultSiteDomain language:[locale objectForKey:NSLocaleLanguageCode]];
+    return [self wmf_URLWithDomain:WMFConfiguration.current.defaultSiteDomain language:[locale objectForKey:NSLocaleLanguageCode]];
 }
 
 + (NSURL *)wmf_URLWithDefaultSiteAndCurrentLocale {
@@ -117,19 +96,6 @@ NSString *const WMFEditPencil = @"WMFEditPencil";
     return components.URL;
 }
 
-- (NSURL *)wmf_wikipediaSchemeURLWithTitle:(NSString *)title {
-    NSURLComponents *components = [NSURLComponents componentsWithURL:self resolvingAgainstBaseURL:NO];
-    components.wmf_title = title;
-    components.scheme = @"wikipedia";
-    return components.URL;
-}
-
-- (NSURL *)wmf_wikipediaSchemeURL {
-    NSURLComponents *components = [NSURLComponents componentsWithURL:self resolvingAgainstBaseURL:NO];
-    components.scheme = @"wikipedia";
-    return components.URL;
-}
-
 - (NSURL *)wmf_URLWithTitle:(NSString *)title fragment:(nullable NSString *)fragment query:(nullable NSString *)query {
     NSURLComponents *components = [NSURLComponents componentsWithURL:self resolvingAgainstBaseURL:NO];
     components.wmf_title = title;
@@ -193,27 +159,6 @@ NSString *const WMFEditPencil = @"WMFEditPencil";
 }
 
 #pragma mark - Properties
-
-- (BOOL)wmf_isWikiResource {
-    static NSString *wikiResourceSuffix = nil;
-#if WMF_USE_BETA_CLUSTER
-    static NSString *mainWikiResourceSuffix = nil;
-#endif
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        wikiResourceSuffix = [NSString stringWithFormat:@".%@", WMFDefaultSiteDomain];
-#if WMF_USE_BETA_CLUSTER
-        mainWikiResourceSuffix = [NSString stringWithFormat:@".%@", WMFDefaultSiteMainDomain];
-#endif
-    });
-    NSString *lowercaseHost = self.host.lowercaseString;
-    return (!lowercaseHost
-#if WMF_USE_BETA_CLUSTER
-            || [lowercaseHost isEqualToString:WMFDefaultSiteMainDomain] || [lowercaseHost hasSuffix:mainWikiResourceSuffix]
-#endif
-            || [lowercaseHost isEqualToString:WMFDefaultSiteDomain] || [lowercaseHost hasSuffix:wikiResourceSuffix] || [lowercaseHost isEqualToString:WMFMediaWikiDomain] || [lowercaseHost hasSuffix:WMFMediaWikiDomain]) &&
-           [self.path wmf_isWikiResource];
-}
 
 - (BOOL)wmf_isWikiCitation {
     return [self.fragment wmf_isCitationFragment];
@@ -284,17 +229,26 @@ NSString *const WMFEditPencil = @"WMFEditPencil";
     }
 }
 
-- (NSURL *)wmf_articleDatabaseKeyURL {
+- (NSURL *)wmf_canonicalURL {
     NSURLComponents *components = [NSURLComponents componentsWithURL:self resolvingAgainstBaseURL:NO];
     components.host = [NSURLComponents wmf_hostWithDomain:self.wmf_domain language:self.wmf_language isMobile:NO];
+    components.path = [components.path stringByRemovingPercentEncoding] ?: components.path;
+    components.scheme = @"https";
+    return components.URL;
+}
+
+- (NSURL *)wmf_databaseURL {
+    NSURLComponents *components = [NSURLComponents componentsWithURL:self resolvingAgainstBaseURL:NO];
+    components.host = [NSURLComponents wmf_hostWithDomain:self.wmf_domain language:self.wmf_language isMobile:NO];
+    components.path = [components.path stringByRemovingPercentEncoding] ?: components.path;
     components.fragment = nil;
     components.query = nil;
     components.scheme = @"https";
     return components.URL;
 }
 
-- (NSString *)wmf_articleDatabaseKey {
-    return self.wmf_articleDatabaseKeyURL.absoluteString.precomposedStringWithCanonicalMapping;
+- (NSString *)wmf_databaseKey {
+    return self.wmf_databaseURL.absoluteString.precomposedStringWithCanonicalMapping;
 }
 
 - (NSString *)wmf_title {
@@ -323,25 +277,30 @@ NSString *const WMFEditPencil = @"WMFEditPencil";
     if (!self.wmf_isCommonsLink) {
         return self;
     }
-    
-    if (![self.pathExtension.lowercaseString isEqualToString:@"ogg"]) {
+
+    NSString *pathExtension = self.pathExtension.lowercaseString;
+    if (!pathExtension) {
         return self;
     }
-    
+
+    if (![@[@"ogg", @"oga"] containsObject:pathExtension]) {
+        return self;
+    }
+
     NSMutableArray<NSString *> *pathComponents = [self.pathComponents mutableCopy];
     NSInteger index = [pathComponents indexOfObject:@"commons"];
     if (index == NSNotFound || index + 1 >= pathComponents.count) {
         return self;
     }
-    
+
     [pathComponents insertObject:@"transcoded" atIndex:index + 1];
     NSString *filename = [pathComponents lastObject];
     NSString *mp3Filename = [filename stringByAppendingPathExtension:@"mp3"];
     [pathComponents addObject:mp3Filename];
-    
+
     NSURLComponents *components = [NSURLComponents componentsWithURL:self resolvingAgainstBaseURL:NO];
     components.path = [pathComponents componentsJoinedByString:@"/"];
-    
+
     return components.URL;
 }
 

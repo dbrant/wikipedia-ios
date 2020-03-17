@@ -18,35 +18,33 @@ public enum WMFCurrentlyLoggedInUserFetcherError: LocalizedError {
 public typealias WMFCurrentlyLoggedInUserBlock = (WMFCurrentlyLoggedInUser) -> Void
 
 @objc public class WMFCurrentlyLoggedInUser: NSObject {
-    @objc var userID: Int
-    @objc var name: String
-    init(userID: Int, name: String) {
+    @objc public var userID: Int
+    @objc public var name: String
+    @objc public var groups: [String]
+    init(userID: Int, name: String, groups: [String]) {
         self.userID = userID
         self.name = name
+        self.groups = groups
     }
 }
 
-public class WMFCurrentlyLoggedInUserFetcher {
-    private let manager = AFHTTPSessionManager.wmf_createDefault()
-    public func isFetching() -> Bool {
-        return manager.operationQueue.operationCount > 0
-    }
-    
+public class WMFCurrentlyLoggedInUserFetcher: Fetcher {
     public func fetch(siteURL: URL, success: @escaping WMFCurrentlyLoggedInUserBlock, failure: @escaping WMFErrorHandler){
-        let manager = AFHTTPSessionManager(baseURL: siteURL)
-        manager.responseSerializer = WMFApiJsonResponseSerializer.init();
-        
         let parameters = [
             "action": "query",
             "meta": "userinfo",
+            "uiprop": "groups",
             "format": "json"
         ]
         
-        _ = manager.wmf_apiPOST(with: parameters, success: { (_, response) in
+        performMediaWikiAPIPOST(for: siteURL, with: parameters) { (result, response, error) in
+            if let error = error {
+                failure(error)
+                return
+            }
             guard
-                let response = response as? [String : AnyObject],
-                let query = response["query"] as? [String : AnyObject],
-                let userinfo = query["userinfo"] as? [String : AnyObject],
+                let query = result?["query"] as? [String : Any],
+                let userinfo = query["userinfo"] as? [String : Any],
                 let userID = userinfo["id"] as? Int,
                 let userName = userinfo["name"] as? String
                 else {
@@ -57,9 +55,8 @@ public class WMFCurrentlyLoggedInUserFetcher {
                 failure(WMFCurrentlyLoggedInUserFetcherError.userIsAnonymous)
                 return
             }
-            success(WMFCurrentlyLoggedInUser.init(userID: userID, name: userName))
-        }, failure: { (_, error) in
-            failure(error)
-        })
+            let groups = userinfo["groups"] as? [String] ?? []
+            success(WMFCurrentlyLoggedInUser.init(userID: userID, name: userName, groups: groups))
+        }
     }
 }

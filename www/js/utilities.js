@@ -1,21 +1,3 @@
-
-// Implementation of https://developer.mozilla.org/en-US/docs/Web/API/Element/closest
-const findClosest = (el, selector) => {
-  while ((el = el.parentElement) && !el.matches(selector));
-  return el
-}
-
-const setLanguage = (lang, dir, uidir) => {
-  const html = document.querySelector( 'html' )
-  html.lang = lang
-  html.dir = dir
-  html.classList.add( 'content-' + dir )
-  html.classList.add( 'ui-' + uidir )
-}
-
-const setPageProtected =
-  isProtected => document.querySelector( 'html' ).classList[isProtected ? 'add' : 'remove']('page-protected')
-
 const scrollToFragment = fragmentId => {
   location.hash = ''
   location.hash = fragmentId
@@ -35,6 +17,3 @@ const accessibilityCursorToFragment = fragmentId => {
 
 exports.accessibilityCursorToFragment = accessibilityCursorToFragment
 exports.scrollToFragment = scrollToFragment
-exports.setPageProtected = setPageProtected
-exports.setLanguage = setLanguage
-exports.findClosest = findClosest

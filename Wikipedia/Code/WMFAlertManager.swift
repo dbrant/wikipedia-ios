@@ -5,7 +5,7 @@ extension NSError {
     
     public func alertMessage() -> String {
         if(self.wmf_isNetworkConnectionError()){
-            return WMFLocalizedString("alert-no-internet", value:"There's no internet connection", comment:"Message shown in an alert banner when there is no connection to the internet.")
+            return CommonStrings.noInternetConnection
         }else{
             return self.localizedDescription
         }
@@ -54,7 +54,7 @@ open class WMFAlertManager: NSObject, RMessageProtocol, MFMailComposeViewControl
         }
     }
 
-    @objc func showAlert(_ message: String?, sticky: Bool, dismissPreviousAlerts: Bool, tapCallBack: (() -> Void)?) {
+    @objc func showAlert(_ message: String?, sticky: Bool, dismissPreviousAlerts: Bool, tapCallBack: (() -> Void)? = nil) {
         showAlert(message, sticky: sticky, canBeDismissedByUser: true, dismissPreviousAlerts: dismissPreviousAlerts, tapCallBack: tapCallBack)
     }
     
@@ -77,21 +77,21 @@ open class WMFAlertManager: NSObject, RMessageProtocol, MFMailComposeViewControl
         })
     }
 
-    @objc func showWarningAlert(_ message: String, sticky:Bool,dismissPreviousAlerts:Bool, tapCallBack: (() -> Void)?) {
+    @objc func showWarningAlert(_ message: String, sticky:Bool,dismissPreviousAlerts:Bool, tapCallBack: (() -> Void)? = nil) {
         
         showAlert(dismissPreviousAlerts, alertBlock: { () -> Void in
             RMessage.showNotification(in: nil, title: message, subtitle: nil, iconImage: nil, type: .warning, customTypeName: nil, duration: sticky ? -1 : 2, callback: tapCallBack, buttonTitle: nil, buttonCallback: nil, at: .top, canBeDismissedByUser: true)
         })
     }
 
-    @objc func showErrorAlert(_ error: NSError, sticky:Bool,dismissPreviousAlerts:Bool, tapCallBack: (() -> Void)?) {
+    @objc func showErrorAlert(_ error: Error, sticky:Bool,dismissPreviousAlerts:Bool, tapCallBack: (() -> Void)? = nil) {
         
         showAlert(dismissPreviousAlerts, alertBlock: { () -> Void in
-            RMessage.showNotification(in: nil, title: error.alertMessage(), subtitle: nil, iconImage: nil, type: .error, customTypeName: nil, duration: sticky ? -1 : 2, callback: tapCallBack, buttonTitle: nil, buttonCallback: nil, at: .top, canBeDismissedByUser: true)
+            RMessage.showNotification(in: nil, title: (error as NSError).alertMessage(), subtitle: nil, iconImage: nil, type: .error, customTypeName: nil, duration: sticky ? -1 : 2, callback: tapCallBack, buttonTitle: nil, buttonCallback: nil, at: .top, canBeDismissedByUser: true)
         })
     }
     
-    @objc func showErrorAlertWithMessage(_ message: String, sticky:Bool,dismissPreviousAlerts:Bool, tapCallBack: (() -> Void)?) {
+    @objc func showErrorAlertWithMessage(_ message: String, sticky:Bool,dismissPreviousAlerts:Bool, tapCallBack: (() -> Void)? = nil) {
         
         showAlert(dismissPreviousAlerts, alertBlock: { () -> Void in
             RMessage.showNotification(in: nil, title: message, subtitle: nil, iconImage: nil, type: .error, customTypeName: nil, duration: sticky ? -1 : 2, callback: tapCallBack, buttonTitle: nil, buttonCallback: nil, at: .top, canBeDismissedByUser: true)

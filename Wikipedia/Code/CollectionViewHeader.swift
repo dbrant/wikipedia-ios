@@ -12,6 +12,7 @@ class CollectionViewHeader: SizeThatFitsReusableView {
         case detail
         case history
         case recentSearches
+        case pageHistory
     }
     
     public var style: Style = .explore {
@@ -34,6 +35,8 @@ class CollectionViewHeader: SizeThatFitsReusableView {
             setNeedsLayout()
         }
     }
+
+    var titleTextColorKeyPath: KeyPath<Theme, UIColor> = \Theme.colors.primaryText
     
     var subtitle: String? {
         get {
@@ -87,6 +90,11 @@ class CollectionViewHeader: SizeThatFitsReusableView {
         button.titleLabel?.font = UIFont.wmf_font(buttonTextStyle, compatibleWithTraitCollection: traitCollection)
     }
     
+    override func layoutMarginsDidChange() {
+        super.layoutMarginsDidChange()
+        setNeedsLayout()
+    }
+    
     override func sizeThatFits(_ size: CGSize, apply: Bool) -> CGSize {
         let additionalMargins: UIEdgeInsets
         switch style {
@@ -96,6 +104,8 @@ class CollectionViewHeader: SizeThatFitsReusableView {
             additionalMargins = UIEdgeInsets(top: 10, left: 0, bottom: 5, right: 0)
         case .detail:
             additionalMargins = UIEdgeInsets(top: 45, left: 0, bottom: 35, right: 0)
+        case .pageHistory:
+            additionalMargins = UIEdgeInsets(top: 10, left: 6, bottom: 30, right: 6)
         default:
             additionalMargins = .zero
         }
@@ -124,7 +134,7 @@ class CollectionViewHeader: SizeThatFitsReusableView {
 
 extension CollectionViewHeader: Themeable {
     func apply(theme: Theme) {
-        titleLabel.textColor = theme.colors.primaryText
+        titleLabel.textColor = theme[keyPath: titleTextColorKeyPath]
         titleLabel.backgroundColor = theme.colors.paperBackground
         subtitleLabel.textColor = theme.colors.secondaryText
         subtitleLabel.backgroundColor = theme.colors.paperBackground

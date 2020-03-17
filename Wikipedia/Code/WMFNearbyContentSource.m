@@ -72,7 +72,7 @@ static const CLLocationDistance WMFNearbyUpdateDistanceThresholdInMeters = 25000
         if (![WMFLocationManager isAuthorized]) {
             [moc performBlock:^{
                 [moc removeAllContentGroupsOfKind:WMFContentGroupKindLocation];
-                if (![[NSUserDefaults wmf] wmf_exploreDidPromptForLocationAuthorization]) {
+                if (![[NSUserDefaults standardUserDefaults] wmf_exploreDidPromptForLocationAuthorization]) {
                     [self showAuthorizationPlaceholderInManagedObjectContext:moc
                                                                   completion:^{
                                                                       if (completion) {
@@ -135,8 +135,8 @@ static const CLLocationDistance WMFNearbyUpdateDistanceThresholdInMeters = 25000
 }
 
 - (void)showAuthorizationPlaceholderInManagedObjectContext:(NSManagedObjectContext *)moc completion:(nonnull dispatch_block_t)completion {
-    NSString *preferredSiteURLString = [[MWKLanguageLinkController.sharedInstance.preferredSiteURLs firstObject] wmf_articleDatabaseKey];
-    NSString *mySiteURLString = self.siteURL.wmf_articleDatabaseKey;
+    NSString *preferredSiteURLString = [[MWKLanguageLinkController.sharedInstance.preferredSiteURLs firstObject] wmf_databaseKey];
+    NSString *mySiteURLString = self.siteURL.wmf_databaseKey;
     if (preferredSiteURLString && mySiteURLString && ![mySiteURLString isEqualToString:preferredSiteURLString]) {
         if (completion) {
             completion();

@@ -1,28 +1,23 @@
-public struct WikidataAPI {
-    public static let host = "www.wikidata.org"
-    public static let path = "/w/api.php"
-    public static let scheme = "https"
+public struct WikidataAPIResult: Decodable {
+    public struct APIError: Error, Decodable {
+        public let code, info: String?
 
-    public static var urlWithoutAPIPath: URL? {
-        var components = URLComponents()
-        components.scheme = scheme
-        components.host = host
-        return components.url
+        public var localizedDescription: String {
+            return info ?? CommonStrings.unknownError
+        }
     }
-}
-
-struct WikidataAPIResult: Decodable {
-    struct Error: Decodable {
-        let code, info: String?
-    }
-    let error: Error?
+    let error: APIError?
     let success: Int?
 }
 
-extension WikidataAPIResult.Error: LocalizedError {
-    var errorDescription: String? {
-        return info
+struct MediaWikiSiteInfoResult: Decodable {
+    struct MediaWikiQueryResult: Decodable {
+        struct MediaWikiGeneralResult: Decodable {
+            let lang: String
+        }
+        let general: MediaWikiGeneralResult
     }
+    let query: MediaWikiQueryResult
 }
 
 extension WikidataAPIResult {
@@ -38,35 +33,34 @@ enum WikidataPublishingError: LocalizedError {
     case unknown
 }
 
-@objc public final class WikidataDescriptionEditingController: NSObject {
-    private let session: Session
-
-    static let DidMakeAuthorizedWikidataDescriptionEditNotification = NSNotification.Name(rawValue: "WMFDidMakeAuthorizedWikidataDescriptionEdit")
-
-    @objc public init(with session: Session) {
-        self.session = session
-    }
-
-    public func publish(newWikidataDescription: String, from source: ArticleDescriptionSource, for articleURL: URL, completion: @escaping (Error?) -> Void) {
-        guard let title = articleURL.wmf_title,
-        let language = articleURL.wmf_language,
-        let wiki = articleURL.wmf_wiki else {
-            completion(WikidataPublishingError.invalidArticleURL)
-            return
+public enum ArticleDescriptionSource: String {
+    case none
+    case unknown
+    case central
+    case local
+    
+    public static func from(string: String?) -> ArticleDescriptionSource {
+        guard let sourceString = string else {
+            return .none
         }
-        publish(newWikidataDescription: newWikidataDescription, from: source, forPageWithTitle: title, language: language, wiki: wiki, completion: completion)
+        guard let source = ArticleDescriptionSource(rawValue: sourceString) else {
+            return .unknown
+        }
+        return source
     }
+}
 
+@objc public final class WikidataDescriptionEditingController: Fetcher {
+    static let DidMakeAuthorizedWikidataDescriptionEditNotification = NSNotification.Name(rawValue: "WMFDidMakeAuthorizedWikidataDescriptionEdit")
     /// Publish new wikidata description.
     ///
     /// - Parameters:
     ///   - newWikidataDescription: new wikidata description to be published, e.g., "Capital of England and the United Kingdom".
     ///   - source: description source; none, central or local.
-    ///   - title: title of the page to be updated with new wikidata description, e.g., "London".
+    ///   - wikidataID: id for the Wikidata entity including the prefix
     ///   - language: language code of the page's wiki, e.g., "en".
-    ///   - wiki: wiki of the page to be updated, e.g., "enwiki"
     ///   - completion: completion block called when operation is completed.
-    private func publish(newWikidataDescription: String, from source: ArticleDescriptionSource, forPageWithTitle title: String, language: String, wiki: String, completion: @escaping (Error?) -> Void) {
+    public func publish(newWikidataDescription: String, from source: ArticleDescriptionSource, forWikidataID wikidataID: String, language: String, completion: @escaping (Error?) -> Void) {
         guard source != .local else {
             completion(WikidataPublishingError.notEditable)
             return
@@ -88,20 +82,31 @@ enum WikidataPublishingError: LocalizedError {
                 }
             }
         }
-        let queryParameters = ["action": "wbsetdescription",
-                               "format": "json",
-                               "formatversion": "2"]
-        let bodyParameters = ["language": language,
-                              "uselang": language,
-                              "site": wiki,
-                              "title": title,
-                              "value": newWikidataDescription]
-        let _ = session.requestWithCSRF(type: CSRFTokenJSONDecodableOperation.self, scheme: WikidataAPI.scheme, host: WikidataAPI.host, path: WikidataAPI.path, method: .post, queryParameters: queryParameters, bodyParameters: bodyParameters, bodyEncoding: .form, tokenContext: CSRFTokenOperation.TokenContext(tokenName: "token", tokenPlacement: .body, shouldPercentEncodeToken: true), completion: requestWithCSRFCompletion)
-    }
-}
+        
+        let languageCodeParameters = WikipediaSiteInfo.defaultRequestParameters
 
-public extension MWKArticle {
-    @objc var isWikidataDescriptionEditable: Bool {
-        return wikidataId != nil && descriptionSource != .local
+        let languageCodeComponents = configuration.mediaWikiAPIURLForWikiLanguage(language, with: languageCodeParameters)
+        session.jsonDecodableTask(with: languageCodeComponents.url) { (siteInfo: MediaWikiSiteInfoResult?, response, error) in
+            let normalizedLanguage = siteInfo?.query.general.lang ?? "en"
+            let queryParameters = ["action": "wbsetdescription",
+                                   "format": "json",
+                                   "formatversion": "2"]
+            let components = self.configuration.wikidataAPIURLComponents(with: queryParameters)
+            self.requestMediaWikiAPIAuthToken(for: components.url, type: .csrf) { (result) in
+                switch result {
+                case .failure(let error):
+                    completion(error)
+                case .success(let token):
+                    let bodyParameters = ["language": normalizedLanguage,
+                                          "uselang": normalizedLanguage,
+                                          "id": wikidataID,
+                                          "value": newWikidataDescription,
+                                          "token": token.value]
+                    self.session.jsonDecodableTask(with: components.url, method: .post, bodyParameters: bodyParameters, bodyEncoding: .form) { (result: WikidataAPIResult?, response, error) in
+                        requestWithCSRFCompletion(result, response, token.isAuthorized, error)
+                    }
+                }
+            }
+        }
     }
 }

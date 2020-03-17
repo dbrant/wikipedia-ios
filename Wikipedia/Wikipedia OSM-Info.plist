@@ -42,11 +42,6 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Get article recommendations based on your location</string>
 	<key>NSLocationUsageDescription</key>
@@ -66,10 +61,6 @@
 		<string>org.wikimedia.wikipedia.search</string>
 		<string>org.wikimedia.wikipedia.article</string>
 		<string>org.wikimedia.wikipedia.searchresults</string>
-	</array>
-	<key>UIAppFonts</key>
-	<array>
-		<string>WikiFont-Glyphs.ttf</string>
 	</array>
 	<key>UIApplicationShortcutWidget</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER).TopReadWidget</string>

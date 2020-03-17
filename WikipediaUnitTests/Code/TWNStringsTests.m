@@ -109,11 +109,20 @@
     XCTAssert(TWNStringsTests.twnLprojFiles.count > 0);
 }
 
++ (NSRegularExpression *)reverseiOSTokenRegex {
+    static dispatch_once_t onceToken;
+    static NSRegularExpression *reverseiOSTokenRegex;
+    dispatch_once(&onceToken, ^{
+        reverseiOSTokenRegex = [NSRegularExpression regularExpressionWithPattern:@"(:?[^%%])(:?[0-9]+)(?:[$])(:?[^@dDuUxXoOfeEgGcCsSpaAF])" options:0 error:nil];
+    });
+    return reverseiOSTokenRegex;
+}
+
 + (NSRegularExpression *)reverseTWNTokenRegex {
     static dispatch_once_t onceToken;
     static NSRegularExpression *reverseTWNTokenRegex;
     dispatch_once(&onceToken, ^{
-        reverseTWNTokenRegex = [NSRegularExpression regularExpressionWithPattern:@"(:?[^%%])(:?[0-9]+)(?:[$])(:?[^@dDuUxXoOfeEgGcCsSpaAF])" options:0 error:nil];
+        reverseTWNTokenRegex = [NSRegularExpression regularExpressionWithPattern:@"(:?[0-9])(?:[$])(:?[^0-9])" options:0 error:nil];
     });
     return reverseTWNTokenRegex;
 }
@@ -140,7 +149,7 @@
     static dispatch_once_t onceToken;
     static NSRegularExpression *iOSTokenRegex;
     dispatch_once(&onceToken, ^{
-        iOSTokenRegex = [NSRegularExpression regularExpressionWithPattern:@"(?:[%])(:?[0-9]+)(:?[$][@dDuUxXoOfeEgGcCsSpaAF])" options:0 error:nil];
+        iOSTokenRegex = [NSRegularExpression regularExpressionWithPattern:@"%([0-9]*)\\$?([@dDuUxXoOfeEgGcCsSpaAF])" options:0 error:nil];
     });
     return iOSTokenRegex;
 }
@@ -169,7 +178,7 @@
 }
 
 - (void)testiOSTranslationStringForReversedSubstitutionShortcuts {
-    [self assertLprojFiles:TWNStringsTests.iOSLprojFiles withTranslationStringsInDirectory:TWNStringsTests.bundleRoot haveNoMatchesWithRegex:TWNStringsTests.reverseTWNTokenRegex];
+    [self assertLprojFiles:TWNStringsTests.iOSLprojFiles withTranslationStringsInDirectory:TWNStringsTests.bundleRoot haveNoMatchesWithRegex:TWNStringsTests.reverseiOSTokenRegex];
 }
 
 - (void)testIncomingTranslationStringForPercentTokens {
@@ -200,7 +209,6 @@
                     NSString *lowercaseString = localizedString.lowercaseString;
                     if ([lowercaseString containsString:@"{{plural:"]) {
                         XCTAssertNotNil([pluralizableStringsDict objectForKey:key], @"Localizable string %@ in %@ with PLURAL: needs an entry in the corresponding stringsdict file. This likely means that this language's Localizable.stringsdict hasn't been added to the project yet.", key, lprojFileName);
-                        XCTAssertFalse([lowercaseString containsString:@"{{plural:$2"], @"%@ in %@ has more than one plural substitution. Only one plural per translation is supported at this time. You can add support for multiple plurals in scripts/localizations.swift.", key, lprojFileName);
                     } else if (![lowercaseString containsString:@"{{formatnum:$"]) {
                         XCTAssertTrue(false, @"%@ in %@ has unsupported {{ }} in localization.", key, lprojFileName);
                     }
@@ -223,7 +231,7 @@
                     NSString *lowercaseString = localizedString.lowercaseString;
                     if ([lowercaseString containsString:@"{{plural:%"]) {
                         XCTAssertNotNil([pluralizableStringsDict objectForKey:key], @"Localizable string %@ in %@ with PLURAL: needs an entry in the corresponding stringsdict file. This likely means that this language's Localizable.stringsdict hasn't been added to the project yet.", key, lprojFileName);
-                        XCTAssertFalse([lowercaseString containsString:@"{{plural:%2"], @"Only one plural per translation is supported at this time. You can fix this in scripts/localizations.swift.");
+
                     } else {
                         XCTAssertTrue(false, @"Unsupported {{ }} in localization");
                     }
@@ -235,9 +243,13 @@
                                              options:0
                                                range:NSMakeRange(0, localizedString.length)
                                           usingBlock:^(NSTextCheckingResult *_Nullable result, NSMatchingFlags flags, BOOL *_Nonnull stop) {
-                                              NSString *key = [tokenRegex replacementStringForResult:result inString:localizedString offset:0 template:@"$1"];
+                                              NSString *tokenKey = [tokenRegex replacementStringForResult:result inString:localizedString offset:0 template:@"$1"];
+                                              if ([tokenKey isEqualToString:@""]) {
+                                                  tokenKey = @"1";
+                                                  XCTAssertNil(localizedTokens[tokenKey], @"There can only be one unordered token in a localization string. Switch to ordered tokens:\n%@\n%@", key, localizedString);
+                                              }
                                               NSString *value = [tokenRegex replacementStringForResult:result inString:localizedString offset:0 template:@"$2"];
-                                              localizedTokens[key] = value;
+                                              localizedTokens[tokenKey] = value;
                                           }];
 
                 NSString *enString = enStrings[key];
@@ -249,9 +261,13 @@
                                                      options:0
                                                        range:NSMakeRange(0, enString.length)
                                                   usingBlock:^(NSTextCheckingResult *_Nullable result, NSMatchingFlags flags, BOOL *_Nonnull stop) {
-                                                      NSString *key = [tokenRegex replacementStringForResult:result inString:enString offset:0 template:@"$1"];
+                                                      NSString *tokenKey = [tokenRegex replacementStringForResult:result inString:enString offset:0 template:@"$1"];
+                                                      if ([tokenKey isEqualToString:@""]) {
+                                                          tokenKey = @"1";
+                                                          XCTAssertNil(enTokens[tokenKey], @"There can only be one unordered token in a localization string. Switch to ordered tokens:\n%@\n%@", key, enString);
+                                                      }
                                                       NSString *value = [tokenRegex replacementStringForResult:result inString:enString offset:0 template:@"$2"];
-                                                      enTokens[key] = value;
+                                                      enTokens[tokenKey] = value;
                                                   }];
                         enTokensByKey[key] = enTokens;
                     }
@@ -347,6 +363,19 @@
             if (!didFindEnMatchStringAtLeastOnceInQQQMatchString) {
                 // No need keep testing if a string already failed our assertion once.
                 break;
+            }
+        }
+    }
+}
+
+// Translators have been know to add "{{plural..." syntax to strings which don't yet have "{{plural..." in EN, which means the string won't be correctly resolved.
+- (void)testIncomingTranslationStringForBracketSubstitutionsNotPresentInEN {
+    NSDictionary *enPluralizableStringsDict = [self getPluralizableStringsDictFromLprogAtPath:[TWNStringsTests.bundleRoot stringByAppendingPathComponent:@"en.lproj"]];
+    for (NSString *lprojFileName in TWNStringsTests.twnLprojFiles) {
+        if (![lprojFileName isEqualToString:@"qqq.lproj"] && ![lprojFileName isEqualToString:@"en.lproj"]) {
+            NSDictionary *translationPluralizableStringsDict = [self getPluralizableStringsDictFromLprogAtPath:[TWNStringsTests.bundleRoot stringByAppendingPathComponent:lprojFileName]];
+            for (NSString *key in translationPluralizableStringsDict) {
+                XCTAssertNotNil([enPluralizableStringsDict objectForKey:key], @"\n\n\"%@\" translation containing plurals syntax received for \"%@\" string. The original EN string...\n\thttps://translatewiki.net/w/i.php?title=Wikimedia:Wikipedia-ios-%@/en&action=edit\n...doesn't have (or possibly need) plural syntax - either plural syntax will need to be added to the EN string or the translation...\n\thttps://translatewiki.net/w/i.php?title=Wikimedia:Wikipedia-ios-%@/%@&action=edit\n...will need to be updated to remove plural syntax.\n(Note: after loading the link above you can tap the \"Ask question\" button to pre-fill a Phabricator ticket for asking `i18n` folks for assistance for this string)\n\n", lprojFileName, key, key, key, [lprojFileName stringByReplacingOccurrencesOfString:@".lproj" withString:@""]);
             }
         }
     }

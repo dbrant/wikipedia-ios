@@ -28,11 +28,11 @@ class DescriptionWelcomePageViewController: UIPageViewController, UIPageViewCont
         nextButton.setTitleColor(theme.colors.disabledText, for: .disabled)
         nextButton.setTitleColor(theme.colors.link, for: .highlighted)
     }
-    
+
     @objc var completionBlock: (() -> Void)?
     
     func showNextWelcomePage(_ sender: AnyObject){
-        guard let sender = sender as? UIViewController, let index = pageControllers.index(of: sender), index != pageControllers.count - 1 else {
+        guard let sender = sender as? UIViewController, let index = pageControllers.firstIndex(of: sender), index != pageControllers.count - 1 else {
             dismiss(animated: true, completion:completionBlock)
             return
         }
@@ -50,6 +50,9 @@ class DescriptionWelcomePageViewController: UIPageViewController, UIPageViewCont
         let controller = DescriptionWelcomeContainerViewController.wmf_viewControllerFromDescriptionWelcomeStoryboard()
         controller.welcomeNavigationDelegate = self
         controller.pageType = type
+        controller.nextButtonAction = { [weak self] sender in
+            self?.skipButtonTapped(sender)
+        }
         return controller
     }
     
@@ -85,7 +88,8 @@ class DescriptionWelcomePageViewController: UIPageViewController, UIPageViewCont
         if let scrollView = view.wmf_firstSubviewOfType(UIScrollView.self) {
             scrollView.clipsToBounds = false
         }
-        
+
+        updateFonts()
         apply(theme: theme)
     }
     
@@ -127,6 +131,10 @@ class DescriptionWelcomePageViewController: UIPageViewController, UIPageViewCont
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
+        updateFonts()
+    }
+
+    private func updateFonts() {
         skipButton.titleLabel?.font = UIFont.wmf_font(.semiboldFootnote, compatibleWithTraitCollection: traitCollection)
         nextButton.titleLabel?.font = UIFont.wmf_font(.semiboldFootnote, compatibleWithTraitCollection: traitCollection)
     }
@@ -135,8 +143,8 @@ class DescriptionWelcomePageViewController: UIPageViewController, UIPageViewCont
         super.viewDidAppear(animated)
         if let pageControl = pageControl {
             pageControl.isUserInteractionEnabled = false
-            pageControl.pageIndicatorTintColor = theme.colors.disabledLink
-            pageControl.currentPageIndicatorTintColor = theme.colors.link
+            pageControl.pageIndicatorTintColor = theme.colors.pageIndicator
+            pageControl.currentPageIndicatorTintColor = theme.colors.pageIndicatorCurrent
         }
     }
 
@@ -146,7 +154,7 @@ class DescriptionWelcomePageViewController: UIPageViewController, UIPageViewCont
         }
     }
     
-    @objc @IBAction func skipButtonTapped(_ sender: UIButton) {
+    @objc func skipButtonTapped(_ sender: UIButton) {
         dismiss(animated: true, completion:completionBlock)
     }
     
@@ -155,21 +163,21 @@ class DescriptionWelcomePageViewController: UIPageViewController, UIPageViewCont
     }
     
     func presentationIndex(for pageViewController: UIPageViewController) -> Int {
-        guard let viewControllers = viewControllers, let currentVC = viewControllers.first, let presentationIndex = pageControllers.index(of: currentVC) else {
+        guard let viewControllers = viewControllers, let currentVC = viewControllers.first, let presentationIndex = pageControllers.firstIndex(of: currentVC) else {
             return 0
         }
         return presentationIndex
     }
     
     func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
-        guard let index = pageControllers.index(of: viewController) else {
+        guard let index = pageControllers.firstIndex(of: viewController) else {
             return nil
         }
         return index >= pageControllers.count - 1 ? nil : pageControllers[index + 1]
     }
     
     func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
-        guard let index = pageControllers.index(of: viewController) else {
+        guard let index = pageControllers.firstIndex(of: viewController) else {
             return nil
         }
         return index == 0 ? nil : pageControllers[index - 1]
@@ -182,7 +190,7 @@ class DescriptionWelcomePageViewController: UIPageViewController, UIPageViewCont
     }
 
     func hideButtons(for vc: UIViewController){
-        let isLastPage = pageControllers.index(of: vc) == pageControllers.count - 1
+        let isLastPage = pageControllers.firstIndex(of: vc) == pageControllers.count - 1
         let newAlpha:CGFloat = isLastPage ? 0.0 : 1.0
         let alphaChanged = pageControl?.alpha != newAlpha
         nextButton.isEnabled = !isLastPage // Gray out the next button when transitioning to last page (per design)

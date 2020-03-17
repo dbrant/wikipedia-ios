@@ -18,7 +18,7 @@ extension XCUIElement {
         typeText(text)
         return true
     }
-    func wmf_waitUntilExists(timeout: TimeInterval = 30) -> XCUIElement? {
+    func wmf_waitUntilExists(timeout: TimeInterval = 10) -> XCUIElement? {
         if exists && isHittable {
             return self
         }
@@ -133,14 +133,14 @@ extension XCUIElement {
                 if let item = items.first(where: {$0.predicate.evaluate(with: element.label)}) {
                     wmf_scrollElementToTop(element: element, yOffset: yOffset)
                     item.success(element)
-                    if let index = keys.index(of: item.key) {
+                    if let index = keys.firstIndex(of: item.key) {
                         keys.remove(at: index)
                     }
                     continue scrollLoop // Need to skip `wmf_scrollDown()` because other elements may already be onscreen and we don't want to scroll any of them offscreen. This lets the next pass(es) through the loop catch 'em.
                 }
             }
             wmf_scrollDown()
-        } while (Date().timeIntervalSince(start) < seconds) && (keys.count > 0)
+        } while (Date().timeIntervalSince(start) < seconds) && (!keys.isEmpty)
     }
 }
 
@@ -170,7 +170,7 @@ private enum ElementPropertyType: String {
 }
 
 private extension XCUIElementQuery {
-    func wmf_firstElement(with propertyType: ElementPropertyType, withTranslationIn keys: [String], convertTranslationSubstitutionStringsToWildcards shouldConvert: Bool = false, timeout: TimeInterval = 30) -> XCUIElement? {
+    func wmf_firstElement(with propertyType: ElementPropertyType, withTranslationIn keys: [String], convertTranslationSubstitutionStringsToWildcards shouldConvert: Bool = false, timeout: TimeInterval = 10) -> XCUIElement? {
         let translations = keys.map{key in WMFLocalizedString(key, value: "", comment: "")} // localization strings are copied into this scheme during a build phase: https://stackoverflow.com/a/38133902/135557
         let predicate = shouldConvert ? propertyType.wildcardPredicate(for: translations) : propertyType.predicate(for: translations)
         return matching(predicate).element(boundBy: 0).wmf_waitUntilExists(timeout: timeout)
@@ -185,5 +185,11 @@ struct ScrollItem {
         self.key = key
         self.success = success
         self.predicate = ElementPropertyType.`self`.wildcardPredicate(for: WMFLocalizedString(key, value: "", comment: ""))
+    }
+}
+
+extension XCUIApplication {
+    func dismissPopover() {
+        otherElements["PopoverDismissRegion"].tap()
     }
 }

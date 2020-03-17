@@ -144,17 +144,12 @@ class StorageAndSyncingSettingsViewController: SubSettingsViewController {
         let alert = UIAlertController(title: WMFLocalizedString("settings-storage-and-syncing-erase-saved-articles-alert-title", value: "Erase all saved articles?", comment: "Title of the alert shown before erasing all saved article."), message: WMFLocalizedString("settings-storage-and-syncing-erase-saved-articles-alert-message", value: "Erasing your saved articles will remove them from your user account if you have syncing turned on as well as from this device. You cannot undo this action.", comment: "Message for the alert shown before erasing all saved articles."), preferredStyle: .alert)
         let cancel = UIAlertAction(title: CommonStrings.cancelActionTitle, style: .cancel)
         let erase = UIAlertAction(title: CommonStrings.eraseAllSavedArticles, style: .destructive) { (_) in
-            guard let isSyncEnabled = self.dataStore?.readingListsController.isSyncEnabled else {
+            guard let dataStore = self.dataStore else {
                 assertionFailure("dataStore is nil")
                 return
             }
-            self.dataStore?.clearCachesForUnsavedArticles()
-            if isSyncEnabled {
-                self.dataStore?.readingListsController.setSyncEnabled(true, shouldDeleteLocalLists: true, shouldDeleteRemoteLists: true)
-            } else {
-                self.dataStore?.readingListsController.setSyncEnabled(true, shouldDeleteLocalLists: true, shouldDeleteRemoteLists: true)
-                self.dataStore?.readingListsController.setSyncEnabled(false, shouldDeleteLocalLists: false, shouldDeleteRemoteLists: false)
-            }
+            
+            dataStore.readingListsController.eraseAllSavedArticlesAndReadingLists()
             self.tableView.reloadData()
         }
         alert.addAction(cancel)
@@ -167,6 +162,7 @@ class StorageAndSyncingSettingsViewController: SubSettingsViewController {
         eraseSavedArticlesView?.titleLabel.text = CommonStrings.eraseAllSavedArticles
         eraseSavedArticlesView?.button.setTitle(WMFLocalizedString("settings-storage-and-syncing-erase-saved-articles-button-title", value: "Erase", comment: "Title of the settings button that enables erasing saved articles"), for: .normal)
         eraseSavedArticlesView?.button.addTarget(self, action: #selector(eraseSavedArticles), for: .touchUpInside)
+        eraseSavedArticlesView?.updateFonts()
        return eraseSavedArticlesView
     }()
 
@@ -177,8 +173,10 @@ class StorageAndSyncingSettingsViewController: SubSettingsViewController {
         guard viewIfLoaded != nil else {
             return
         }
+        view.backgroundColor = theme.colors.baseBackground
         tableView.backgroundColor = theme.colors.baseBackground
         eraseSavedArticlesView?.apply(theme: theme)
+        tableView.reloadData()
     }
 }
 
@@ -205,9 +203,8 @@ extension StorageAndSyncingSettingsViewController {
             cell.selectionStyle = .none
             cell.backgroundColor = theme.colors.paperBackground
             if let eraseSavedArticlesView = eraseSavedArticlesView {
-                let temporaryCacheSize = ImageController.shared.temporaryCacheSize
-                let sitesDirectorySize = Int64(dataStore?.sitesDirectorySize() ?? 0)
-                let dataSizeString = ByteCountFormatter.string(fromByteCount: temporaryCacheSize + sitesDirectorySize, countStyle: .file)
+                let cacheSize = CacheController.totalCacheSizeInBytes
+                let dataSizeString = ByteCountFormatter.string(fromByteCount: cacheSize, countStyle: .file)
                 let format = WMFLocalizedString("settings-storage-and-syncing-erase-saved-articles-footer-text", value: "Erasing your saved articles will remove them from your user account if you have syncing turned on as well as from this device.\n\nErasing your saved articles will free up about %1$@ of space.", comment: "Footer text of the settings option that enables erasing saved articles. %1$@ will be replaced with a number and a system provided localized unit indicator for MB or KB.")
                 eraseSavedArticlesView.footerLabel.text = String.localizedStringWithFormat(format, dataSizeString)
                 eraseSavedArticlesView.translatesAutoresizingMaskIntoConstraints = false
@@ -232,7 +229,7 @@ extension StorageAndSyncingSettingsViewController {
         return cell
     }
     
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    @objc func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         let item = getItem(at: indexPath)
         switch item.type {
@@ -260,7 +257,7 @@ extension StorageAndSyncingSettingsViewController {
 // MARK: UITableViewDelegate
 
 extension StorageAndSyncingSettingsViewController {
-    func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+    @objc func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
         guard let footer = tableView.dequeueReusableHeaderFooterView(withIdentifier: WMFTableHeaderFooterLabelView.identifier) as? WMFTableHeaderFooterLabelView else {
             return nil
         }
@@ -272,7 +269,7 @@ extension StorageAndSyncingSettingsViewController {
         return footer
     }
     
-    func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+    @objc func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
         guard let _ = self.tableView(tableView, viewForFooterInSection: section) as? WMFTableHeaderFooterLabelView else {
             return 0
         }
@@ -317,7 +314,7 @@ extension StorageAndSyncingSettingsViewController: WMFSettingsTableViewCellDeleg
                 }
             }
             if !isSwitchOn {
-                self.wmf_showKeepSavedArticlesOnDevicePanelIfNecessary(triggeredBy: .syncDisabled, theme: self.theme) {
+                self.wmf_showKeepSavedArticlesOnDevicePanelIfNeeded(triggeredBy: .syncDisabled, theme: self.theme) {
                     setSyncEnabled()
                 }
             } else {

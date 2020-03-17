@@ -29,12 +29,12 @@ class ReadingListsViewController: ColumnarCollectionViewController, EditableColl
         request.relationshipKeyPathsForPrefetching = ["previewArticles"]
         let isDefaultListEnabled = readingListsController.isDefaultListEnabled
         
-        if let readingLists = readingLists, readingLists.count > 0 {
+        if let readingLists = readingLists, !readingLists.isEmpty {
             request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [basePredicate, NSPredicate(format:"self IN %@", readingLists)])
         } else if displayType == .addArticlesToReadingList {
             let commonReadingLists = articles.reduce(articles.first?.readingLists ?? []) { $0.intersection($1.readingLists ?? []) }
             var subpredicates: [NSPredicate] = []
-            if commonReadingLists.count > 0 {
+            if !commonReadingLists.isEmpty {
                 subpredicates.append(NSPredicate(format:"NOT (self IN %@)", commonReadingLists))
             }
             if !isDefaultListEnabled {
@@ -54,14 +54,6 @@ class ReadingListsViewController: ColumnarCollectionViewController, EditableColl
         sortDescriptors.append(NSSortDescriptor(key: "canonicalName", ascending: true, selector: #selector(NSString.localizedCaseInsensitiveCompare)))
         request.sortDescriptors = sortDescriptors
         fetchedResultsController = NSFetchedResultsController(fetchRequest: request, managedObjectContext: dataStore.viewContext, sectionNameKeyPath: nil, cacheName: nil)
-    }
-    
-    func setupCollectionViewUpdater() {
-        guard let fetchedResultsController = fetchedResultsController else {
-            return
-        }
-        collectionViewUpdater = CollectionViewUpdater(fetchedResultsController: fetchedResultsController, collectionView: collectionView)
-        collectionViewUpdater?.delegate = self
     }
     
     var isShowingDefaultReadingListOnly: Bool {
@@ -107,6 +99,7 @@ class ReadingListsViewController: ColumnarCollectionViewController, EditableColl
         super.viewDidLoad()
         layoutManager.register(ReadingListsCollectionViewCell.self, forCellWithReuseIdentifier: ReadingListsCollectionViewCell.identifier, addPlaceholder: true)
         emptyViewType = .noReadingLists
+        emptyViewTarget = self
         emptyViewAction = #selector(presentCreateReadingListViewController)
         setupEditController()
         // Remove peek & pop for now
@@ -128,12 +121,12 @@ class ReadingListsViewController: ColumnarCollectionViewController, EditableColl
         editController.isShowingDefaultCellOnly = isShowingDefaultReadingListOnly
         super.viewWillAppear(animated)
     }
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        editController.close()
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
         collectionViewUpdater = nil
         fetchedResultsController = nil
+        editController.close()
     }
     
     func readingList(at indexPath: IndexPath) -> ReadingList? {
@@ -152,8 +145,8 @@ class ReadingListsViewController: ColumnarCollectionViewController, EditableColl
             return
         }
         createReadingListViewController.delegate = self
-        let navigationController = WMFThemeableNavigationController(rootViewController: createReadingListViewController, theme: theme)
-        createReadingListViewController.navigationItem.leftBarButtonItem = UIBarButtonItem.wmf_buttonType(WMFButtonType.X, target: self, action: #selector(dismissCreateReadingListViewController))
+        let navigationController = WMFThemeableNavigationController(rootViewController: createReadingListViewController, theme: theme, style: .sheet)
+        createReadingListViewController.navigationItem.rightBarButtonItem = UIBarButtonItem.wmf_buttonType(WMFButtonType.X, target: self, action: #selector(dismissCreateReadingListViewController))
         present(navigationController, animated: true, completion: nil)
     }
     
@@ -271,7 +264,7 @@ class ReadingListsViewController: ColumnarCollectionViewController, EditableColl
         
         let readingListDetailViewController = ReadingListDetailViewController(for: readingList, with: dataStore)
         readingListDetailViewController.apply(theme: theme)
-        wmf_push(readingListDetailViewController, animated: true)
+        push(readingListDetailViewController, animated: true)
     }
     
     func collectionView(_ collectionView: UICollectionView, didDeselectItemAt indexPath: IndexPath) {
@@ -368,7 +361,7 @@ extension ReadingListsViewController: CollectionViewUpdaterDelegate {
         collectionView.setNeedsLayout()
     }
     
-    func collectionViewUpdater<T>(_ updater: CollectionViewUpdater<T>, updateItemAtIndexPath indexPath: IndexPath, in collectionView: UICollectionView) where T : NSFetchRequestResult {
+    func collectionViewUpdater<T: NSFetchRequestResult>(_ updater: CollectionViewUpdater<T>, updateItemAtIndexPath indexPath: IndexPath, in collectionView: UICollectionView) {
     }
 }
 
@@ -383,11 +376,14 @@ extension ReadingListsViewController: ActionDelegate {
             return self.editController.didPerformAction(action)
         }
         let alertController = ReadingListsAlertController()
-        let cancel = ReadingListsAlertActionType.cancel.action { self.editController.close() }
+        let cancel = ReadingListsAlertActionType.cancel.action()
         let delete = ReadingListsAlertActionType.delete.action { let _ = self.editController.didPerformAction(action) }
-        return alertController.showAlert(presenter: self, for: [readingList], with: [cancel, delete], completion: nil) {
-            return self.editController.didPerformAction(action)
+        alertController.showAlertIfNeeded(presenter: self, for: [readingList], with: [cancel, delete]) { showed in
+            if !showed {
+                let _ = self.editController.didPerformAction(action)
+            }
         }
+        return true
     }
     
     private func deleteReadingLists(_ readingLists: [ReadingList]) {
@@ -405,31 +401,38 @@ extension ReadingListsViewController: ActionDelegate {
         }
     }
     
-    func didPerformBatchEditToolbarAction(_ action: BatchEditToolbarAction) -> Bool {
+    func didPerformBatchEditToolbarAction(_ action: BatchEditToolbarAction, completion: @escaping (Bool) -> Void) {
         guard let selectedIndexPaths = collectionView.indexPathsForSelectedItems else {
-            return false
+            completion(false)
+            return
         }
         
         let readingLists: [ReadingList] = selectedIndexPaths.compactMap({ readingList(at: $0) })
         
         switch action.type {
-        case .update:
-            return true
         case .delete:
             let alertController = ReadingListsAlertController()
+            let deleteReadingLists = {
+                self.deleteReadingLists(readingLists)
+                completion(true)
+            }
             let delete = ReadingListsAlertActionType.delete.action {
                 self.deleteReadingLists(readingLists)
+                completion(true)
             }
-            var didPerform = false
-            return alertController.showAlert(presenter: self, for: readingLists, with: [ReadingListsAlertActionType.cancel.action(), delete], completion: { didPerform = true }) {
-                self.deleteReadingLists(readingLists)
-                didPerform = true
-                return didPerform
+            let cancel = ReadingListsAlertActionType.cancel.action {
+                completion(false)
+            }
+            let actions = [cancel, delete]
+            alertController.showAlertIfNeeded(presenter: self, for: readingLists, with: actions) { showed in
+                if !showed {
+                    deleteReadingLists()
+                }
             }
         default:
+            completion(false)
             break
         }
-        return false
     }
     
     func didPerformAction(_ action: Action) -> Bool {

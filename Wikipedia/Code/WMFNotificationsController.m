@@ -3,6 +3,7 @@
 #import <WMF/WMF-Swift.h>
 @import ImageIO;
 @import UserNotifications;
+@import CoreServices;
 
 #define WMF_ALWAYS_ASK_FOR_NOTIFICATION_PERMISSION DEBUG && 0
 
@@ -82,7 +83,7 @@ NSString *const WMFNotificationInfoFeedNewsStoryKey = @"feedNewsStory";
 - (void)updateCategories {
     UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
     UNNotificationAction *readNowAction = [UNNotificationAction actionWithIdentifier:WMFInTheNewsNotificationReadNowActionIdentifier title:WMFLocalizedStringWithDefaultValue(@"in-the-news-notification-read-now-action-title", nil, nil, @"Read Now", @"Title on the 'Read Now' action button") options:UNNotificationActionOptionForeground];
-    UNNotificationAction *shareAction = [UNNotificationAction actionWithIdentifier:WMFInTheNewsNotificationShareActionIdentifier title:WMFLocalizedStringWithDefaultValue(@"in-the-news-notification-share-action-title", nil, nil, @"Share...", @"Title on the 'Share' action button\n{{Identical|Share}}") options:UNNotificationActionOptionForeground];
+    UNNotificationAction *shareAction = [UNNotificationAction actionWithIdentifier:WMFInTheNewsNotificationShareActionIdentifier title:WMFLocalizedStringWithDefaultValue(@"in-the-news-notification-share-action-title", nil, nil, @"Share…", @"Title on the 'Share' action button {{Identical|Share}}") options:UNNotificationActionOptionForeground];
     UNNotificationAction *saveForLaterAction = [UNNotificationAction actionWithIdentifier:WMFInTheNewsNotificationSaveForLaterActionIdentifier title:WMFLocalizedStringWithDefaultValue(@"in-the-news-notification-save-for-later-action-title", nil, nil, @"Save for later", @"Title on the 'Save for later' action button") options:UNNotificationActionOptionNone];
     UNNotificationAction *readMoreAction = [UNNotificationAction actionWithIdentifier:WMFEditRevertedReadMoreActionIdentifier title:WMFLocalizedStringWithDefaultValue(@"reverted-edit-notification-read-more-action-title", nil, nil, @"Read more", @"Title on the 'Read more' action button") options:UNNotificationActionOptionNone];
 
@@ -168,7 +169,7 @@ NSString *const WMFNotificationInfoFeedNewsStoryKey = @"feedNewsStory";
         return;
     }
 
-    WMFImageController *imageController = [WMFImageController sharedInstance];
+    WMFImageCacheControllerWrapper *imageController = [WMFImageCacheControllerWrapper shared];
     [imageController fetchDataWithURL:thumbnailURL
         failure:^(NSError *_Nonnull error) {
             [self sendNotificationWithTitle:title body:body categoryIdentifier:categoryIdentifier userInfo:userInfo atDateComponents:dateComponents withAttachements:nil];

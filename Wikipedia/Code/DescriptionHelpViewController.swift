@@ -30,11 +30,6 @@ class DescriptionHelpViewController: ViewController {
 
     @IBOutlet private var imageViews: [UIImageView]!
     @IBOutlet private var dividerViews: [UIView]!
-
-    @objc public init(theme: Theme) {
-        super.init()
-        self.theme = theme
-    }
     
     required convenience init?(coder aDecoder: NSCoder) {
         self.init(theme: Theme.standard)
@@ -63,10 +58,11 @@ class DescriptionHelpViewController: ViewController {
         exampleTwoDescriptionLabel.text = WMFLocalizedString("description-help-tips-example-description-two", value:"title description for an article about Mount Everest", comment:"Second example description text")
         
         moreInfoTitleLabel.text = WMFLocalizedString("description-help-more-info-title", value:"More information", comment:"Title descriptions more info heading text")
-        moreInfoDescriptionLabel.text = WMFLocalizedString("description-help-more-info-description", value:"Descriptions are stored and maintained on Wikidata,  a project of the Wikimedia Foundation which provides a free, collaborative, multilingual, secondary database supporting Wikipedia and other projects.", comment:"Title descriptions more info details text")
+        moreInfoDescriptionLabel.text = WMFLocalizedString("description-help-more-info-description", value:"Descriptions are stored and maintained on Wikidata, a project of the Wikimedia Foundation which provides a free, collaborative, multilingual, secondary database supporting Wikipedia and other projects.", comment:"Title descriptions more info details text")
 
         aboutWikidataLabel.text = WMFLocalizedString("description-help-about-wikidata", value:"About Wikidata", comment:"About Wikidata label text")
         wikidataGuideLabel.text = WMFLocalizedString("description-help-wikidata-guide", value:"Wikidata guide for writing descriptions", comment:"Wikidata guide label text")
+        updateFonts()
     }
     
     @objc func closeButtonPushed(_ : UIBarButtonItem) {
@@ -98,6 +94,10 @@ class DescriptionHelpViewController: ViewController {
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
+        updateFonts()
+    }
+
+    private func updateFonts() {
         allLabels.forEach {
             $0.set(dynamicTextStyle: .body)
         }
@@ -110,11 +110,11 @@ class DescriptionHelpViewController: ViewController {
     }
     
     @IBAction func showAboutWikidataPage() {
-        wmf_openExternalUrl(URL(string: "https://m.wikidata.org/wiki/Wikidata:Introduction"))
+        navigate(to: URL(string: "https://m.wikidata.org/wiki/Wikidata:Introduction"))
     }
 
     @IBAction func showWikidataGuidePage() {
-        wmf_openExternalUrl(URL(string: "https://m.wikidata.org/wiki/Help:Description#Guidelines_for_descriptions_in_English"))
+        navigate(to: URL(string: "https://m.wikidata.org/wiki/Help:Description#Guidelines_for_descriptions_in_English"))
     }
 }
 

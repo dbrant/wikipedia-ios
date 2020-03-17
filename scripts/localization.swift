@@ -30,7 +30,7 @@ fileprivate var twnTokenRegex: NSRegularExpression? = {
 
 fileprivate var iOSTokenRegex: NSRegularExpression? = {
     do {
-        return try NSRegularExpression(pattern: "(?:[%])(:?[0-9]+)(?:[$])(:?[@dDuUxXoOfeEgGcCsSpaAF])", options: [])
+        return try NSRegularExpression(pattern: "%([0-9]*)\\$?([@dDuUxXoOfeEgGcCsSpaAF])", options: [])
     } catch {
         assertionFailure("Localization token regex failed to compile")
     }
@@ -48,22 +48,37 @@ fileprivate var mwLocalizedStringRegex: NSRegularExpression? = {
 
 fileprivate var countPrefixRegex: NSRegularExpression? = {
     do {
-        return try NSRegularExpression(pattern: "(:?^[0-9]+)(?:=)", options: [])
+        return try NSRegularExpression(pattern: "(:?^[^\\=]+)(?:=)", options: [])
     } catch {
         assertionFailure("countPrefixRegex failed to compile")
     }
     return nil
 }()
 
-let keysByPrefix = ["0":"zero", "1":"one", "2":"two", "3":"few"]
+// lookup from translatewiki prefix to iOS-supported stringsdict key
+let keysByPrefix = [
+    "0":"zero",
+    //"1":"one" digits on translatewiki mean only use the translation when the replacement number === that digit. On iOS one, two, and few are more generic. for example, the translation for one could map to 1, 21, 31, etc
+    //"2":"two",
+    //"3":"few"
+    "zero":"zero",
+    "one":"one",
+    "two":"two",
+    "few":"few",
+    "many":"many",
+    "other":"other"
+]
+
 extension String {
     var fullRange: NSRange {
-        return NSRange(location: 0, length: (self as NSString).length)
+        return NSRange(startIndex..<endIndex, in: self)
     }
     var escapedString: String {
         return self.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"").replacingOccurrences(of: "\n", with: "\\n")
     }
-    func pluralDictionary(with keys: [String], tokens: [String: String]) -> NSDictionary? {
+    
+    /* supportsOneEquals indicates that the language's singular translation on iOS is only valid for n=1. digits on translatewiki mean only use the translation when the replacement number === that digit. On iOS one, two, and few are more generic. for example, the translation for one could map to 1, 21, 31, etc. Only use 1= for one when the iOS definition matches the translatewiki definition for a given language. */
+    func pluralDictionary(with keys: [String], tokens: [String: String], supportsOneEquals: Bool) -> NSDictionary? {
         //https://developer.apple.com/library/content/documentation/MacOSX/Conceptual/BPInternational/StringsdictFileFormat/StringsdictFileFormat.html#//apple_ref/doc/uid/10000171i-CH16-SW1
         guard let dictionaryRegex = dictionaryRegex else {
             return nil
@@ -72,94 +87,117 @@ extension String {
         let fullRange = self.fullRange
         let mutableDictionary = NSMutableDictionary(capacity: 5)
         let results = dictionaryRegex.matches(in: self, options: [], range: fullRange)
-        
-        guard results.count == 1 else {
-            // we only support strings with a single plural
-            return nil
-        }
-        
-        guard let result = results.first else {
-            return nil
-        }
-        
-        let contents = dictionaryRegex.replacementString(for: result, in: self, offset: 0, template: "$1")
-        
-        let components = contents.components(separatedBy: "|")
-        
-        let countOfComponents = components.count
-        guard countOfComponents > 1 else {
-            return nil
-        }
-        
-        let firstComponent = components[0]
-        guard firstComponent.hasPrefix("PLURAL:") else {
-            return nil
-        }
-        
-        let token = firstComponent.suffix(from: firstComponent.index(firstComponent.startIndex, offsetBy: 7))
-        guard (token as NSString).length == 2 else {
-            return nil
-        }
-        
-        let range = result.range
         let nsSelf = self as NSString
-        let keyDictionary = NSMutableDictionary(capacity: 5)
-        let formatValueType = tokens["1"] ?? "d"
-        keyDictionary["NSStringFormatSpecTypeKey"] = "NSStringPluralRuleType"
-        keyDictionary["NSStringFormatValueTypeKey"] = formatValueType
-        
-        guard let countPrefixRegex = countPrefixRegex else {
-            abort()
-        }
-        
-        var unlabeledComponents: [String] = []
-        for component in components[1..<countOfComponents] {
-            var keyForComponent: String?
-            var actualComponent: String? = component
-            guard let match = countPrefixRegex.firstMatch(in: component, options: [], range: component.fullRange) else {
-                unlabeledComponents.append(component)
+
+        // format is the full string with the plural tokens replaced by variables
+        // it will be built by enumerating through the matches for the plural regex
+        var format = ""
+        var location = 0
+        for result in results {
+            // append the next part of the string after the last match and before this one
+            format += nsSelf.substring(with: NSMakeRange(location, result.range.location - location)).iOSNativeLocalization(tokens: tokens)
+            location = result.range.location + result.range.length
+            
+            // get the contents of the match - the content between {{ and }}
+            let contents = dictionaryRegex.replacementString(for: result, in: self, offset: 0, template: "$1")
+             
+            let components = contents.components(separatedBy: "|")
+            
+            let countOfComponents = components.count
+            guard countOfComponents > 1 else {
                 continue
             }
             
-            // Support for 0= 1= 2=
-            let numberString = countPrefixRegex.replacementString(for: match, in: component, offset: 0, template: "$1")
-            if let key = keysByPrefix[numberString] {
-                keyForComponent = key
-                remainingKeys = remainingKeys.filter({ (aKey) -> Bool in
-                    return key != aKey
-                })
-                actualComponent = String(component.suffix(from: component.index(component.startIndex, offsetBy: match.range.length)))
-            } else {
-                print("Unsupported prefix. Ignoring \(String(describing: component))")
-            }
-            
-            guard let keyToInsert = keyForComponent, let componentToInsert = actualComponent else {
+            let firstComponent = components[0]
+            guard firstComponent.hasPrefix("PLURAL:") else {
                 continue
             }
             
-            keyDictionary[keyToInsert] = nsSelf.replacingCharacters(in:range, with: componentToInsert).iOSNativeLocalization(tokens: tokens)
-        }
-        
-        guard let other = unlabeledComponents.last else {
-            print("missing base translation for \(keys) \(tokens)")
-            abort()
-        }
-        keyDictionary["other"] = nsSelf.replacingCharacters(in:range, with: other).iOSNativeLocalization(tokens: tokens)
-        
-        var keyIndex = 0
-        for component in unlabeledComponents[0..<(unlabeledComponents.count - 1)] {
-            guard keyIndex < remainingKeys.count else {
-                break
+            let token = firstComponent.suffix(from: firstComponent.index(firstComponent.startIndex, offsetBy: 7)).trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            let nsToken = (token as NSString)
+            let tokenNumber = nsToken.substring(from: 1)
+            
+            guard
+                let tokenInt = Int(tokenNumber),
+                tokenInt > 0
+            else {
+                continue
             }
-            keyDictionary[remainingKeys[keyIndex]] = nsSelf.replacingCharacters(in:range, with: component).iOSNativeLocalization(tokens: tokens)
-            keyIndex += 1
+            
+            let keyDictionary = NSMutableDictionary(capacity: 5)
+            let formatValueType = tokens[tokenNumber] ?? "d"
+            keyDictionary["NSStringFormatSpecTypeKey"] = "NSStringPluralRuleType"
+            keyDictionary["NSStringFormatValueTypeKey"] = formatValueType
+            
+            guard let countPrefixRegex = countPrefixRegex else {
+                abort()
+            }
+            
+            var unlabeledComponents: [String] = []
+            for component in components[1..<countOfComponents] {
+                var keyForComponent: String?
+                var actualComponent: String? = component
+                guard let match = countPrefixRegex.firstMatch(in: component, options: [], range: component.fullRange) else {
+                    if component.contains("=") {
+                        print("Unsupported prefix: \(String(describing: component))")
+                        abort()
+                    }
+                    unlabeledComponents.append(component)
+                    continue
+                }
+                
+                // Support for 0= 1= 2= zero= one= few= many=
+                let numberString = countPrefixRegex.replacementString(for: match, in: component, offset: 0, template: "$1")
+                if let key = (supportsOneEquals && (numberString == "1" || numberString == "one")) ? "one" : keysByPrefix[numberString] {
+                    keyForComponent = key
+                    remainingKeys = remainingKeys.filter({ (aKey) -> Bool in
+                        return key != aKey
+                    })
+                    actualComponent = String(component.suffix(from: component.index(component.startIndex, offsetBy: match.range.length)))
+                } else {
+                    #if DEBUG
+                    print("Translatewiki prefix \(numberString) not supported on iOS for this language. Ignoring \(String(describing: component))")
+                    #endif
+                }
+                
+                guard let keyToInsert = keyForComponent, let componentToInsert = actualComponent else {
+                    continue
+                }
+                
+                keyDictionary[keyToInsert] = componentToInsert.iOSNativeLocalization(tokens: tokens)
+            }
+            
+            if let other = unlabeledComponents.last {
+                keyDictionary["other"] = other.iOSNativeLocalization(tokens: tokens)
+                
+                for (keyIndex, component) in unlabeledComponents.enumerated() {
+                    guard
+                        keyIndex < unlabeledComponents.count - 1,
+                        keyIndex < remainingKeys.count
+                    else {
+                        break
+                    }
+                    keyDictionary[remainingKeys[keyIndex]] = component.iOSNativeLocalization(tokens: tokens)
+                }
+            } else if keyDictionary["other"] == nil {
+                if keyDictionary["many"] != nil {
+                    keyDictionary["other"] = keyDictionary["many"]
+                } else {
+                    print("missing default translation")
+                    abort()
+                }
+            }
+        
+            // set the variable name for the plural replacement
+            let key = "v\(tokenInt)"
+            // include the dictionary of possible replacements for the plural token
+            mutableDictionary[key] = keyDictionary
+            // append the variable name to the format string where the plural token used to be
+            format += "%#@\(key)@"
         }
-        
-        
-        let key = "v0"
-        mutableDictionary[key] = keyDictionary
-        let replacement = "%#@\(key)@"
-        mutableDictionary["NSStringLocalizedFormatKey"] = replacement
+        // append the final part of the string after the last match
+        format += nsSelf.substring(with: NSMakeRange(location, nsSelf.length - location)).iOSNativeLocalization(tokens: tokens)
+        mutableDictionary["NSStringLocalizedFormatKey"] = format
         return mutableDictionary
     }
     
@@ -167,15 +205,22 @@ extension String {
         let nativeLocalization = NSMutableString(string: self)
         var offset = 0
         let fullRange = NSRange(location: 0, length: nativeLocalization.length)
+        var index = 1
         regex.enumerateMatches(in: self, options: [], range: fullRange) { (result, flags, stop) in
             guard let result = result else {
                 return
             }
-            let token = regex.replacementString(for: result, in: nativeLocalization as String, offset: offset, template: "$1")
+            var token = regex.replacementString(for: result, in: nativeLocalization as String, offset: offset, template: "$1")
+            // If the token doesn't have an index, give it one
+            // This allows us to support unordered tokens for single token strings
+            if token == "" {
+                token = "\(index)"
+            }
             let replacement = String(format: format, token)
             let replacementRange = NSRange(location: result.range.location + offset, length: result.range.length)
             nativeLocalization.replaceCharacters(in: replacementRange, with: replacement)
             offset += (replacement as NSString).length - result.range.length
+            index += 1
         }
         return nativeLocalization as String
     }
@@ -221,7 +266,11 @@ extension String {
             guard let result = result else {
                 return
             }
-            let number = iOSTokenRegex.replacementString(for: result, in: self as String, offset: 0, template: "$1")
+            var number = iOSTokenRegex.replacementString(for: result, in: self as String, offset: 0, template: "$1")
+            // treat an un-numbered token as 1
+            if number == "" {
+                number = "1"
+            }
             let token = iOSTokenRegex.replacementString(for: result, in: self as String, offset: 0, template: "$2")
             if tokenDictionary[number] == nil {
                 tokenDictionary[number] = token
@@ -267,11 +316,25 @@ func writeStrings(fromDictionary dictionary: NSDictionary, toFile: String) throw
 }
 
 // See "Localized Metadata" section here: https://docs.fastlane.tools/actions/deliver/
-func writeFastlaneAppStoreLocalizedMetadataFile(fileName: String, contents: String, locale: String, path: String) throws {
-    let pathForFastlaneMetadataForLocale = "\(path)/fastlane/metadata/\(locale)"
-    try FileManager.default.createDirectory(atPath: pathForFastlaneMetadataForLocale, withIntermediateDirectories: true, attributes: nil)
-    let descriptionFileURL = URL(fileURLWithPath:"\(pathForFastlaneMetadataForLocale)/\(fileName)",  isDirectory: false)
-    try contents.write(to: descriptionFileURL, atomically: true, encoding: .utf8)
+func fileURLForFastlaneMetadataFolder(for locale: String) -> URL {
+    return URL(fileURLWithPath:"\(path)/fastlane/metadata/\(locale)")
+}
+
+func fileURLForFastlaneMetadataFile(_ file: String, for locale: String) -> URL {
+    return fileURLForFastlaneMetadataFolder(for: locale).appendingPathComponent(file)
+}
+
+let defaultAppStoreMetadataLocale = "en-us"
+func writeFastlaneMetadata(_ metadata: Any?, to filename: String, for locale: String) throws {
+    let metadataFileURL = fileURLForFastlaneMetadataFile(filename, for: locale)
+    guard let metadata = metadata as? String, metadata.count > 0 else {
+        let defaultDescriptionFileURL = fileURLForFastlaneMetadataFile(filename, for: defaultAppStoreMetadataLocale)
+        let fm = FileManager.default
+        try fm.removeItem(at: metadataFileURL)
+        try fm.copyItem(at: defaultDescriptionFileURL, to: metadataFileURL)
+        return
+    }
+    try metadata.write(to: metadataFileURL, atomically: true, encoding: .utf8)
 }
 
 func writeTWNStrings(fromDictionary dictionary: [String: String], toFile: String, escaped: Bool) throws {
@@ -341,7 +404,16 @@ func exportLocalizationsFromSourceCode(_ path: String) {
     }
 }
 
-let locales = Set<String>(Locale.availableIdentifiers)
+let locales: Set<String> =  {
+    var identifiers = Locale.availableIdentifiers
+    if let filenames = try? FileManager.default.contentsOfDirectory(atPath: "\(path)/Wikipedia/iOS Native Localizations") {
+        let additional = filenames.compactMap { $0.components(separatedBy: ".").first?.lowercased() }
+        identifiers += additional
+    }
+    identifiers += ["ku"] // iOS 13 added support for ku but macOS 10.14 doesn't include it, add it manually. This line can be removed when macOS 10.15 ships.
+    return Set<String>(identifiers)
+}()
+
 func localeIsAvailable(_ locale: String) -> Bool {
     let prefix = locale.components(separatedBy: "-").first ?? locale
     return locales.contains(prefix)
@@ -365,16 +437,48 @@ func importLocalizationsFromTWN(_ path: String) {
     do {
         let keysByLanguage = ["pl": ["one", "few"], "sr": ["one", "few", "many"], "ru": ["one", "few", "many"]]
         let defaultKeys = ["one"]
+        let appStoreMetadataLocales: [String: [String]] = [
+            "da": ["da"],
+            "de": ["de-de"],
+            "el": ["el"],
+            //"en": ["en-au", "en-ca", "en-gb"],
+            "es": ["es-mx", "es-es"],
+            "fi": ["fi"],
+            "fr": ["fr-ca", "fr-fr"],
+            "id": ["id"],
+            "it": ["it"],
+            "ja": ["ja"],
+            "ko": ["ko"],
+            "ms": ["ms"],
+            "nl": ["nl-nl"],
+            "no": ["no"],
+            "pt": ["pt-br", "pt-pt"],
+            "ru": ["ru"],
+            "sv": ["sv"],
+            "th": ["th"],
+            "tr": ["tr"],
+            "vi": ["vi"],
+            "zh-hans": ["zh-hans"],
+            "zh-hant": ["zh-hant"]
+        ]
         let contents = try fm.contentsOfDirectory(atPath: "\(path)/Wikipedia/Localizations")
         var pathsForEnglishPlurals: [String] = [] //write english plurals to these paths as placeholders
         var englishPluralDictionary: NSMutableDictionary?
         for filename in contents {
-            guard let locale = filename.components(separatedBy: ".").first?.lowercased(), localeIsAvailable(locale) else {
+            guard let locale = filename.components(separatedBy: ".").first?.lowercased() else {
                 continue
             }
-            guard let twnStrings = NSDictionary(contentsOfFile: "\(path)/Wikipedia/Localizations/\(locale).lproj/Localizable.strings") else {
+            
+            let localeFolder = "\(path)/Wikipedia/iOS Native Localizations/\(locale).lproj"
+
+            guard localeIsAvailable(locale), let twnStrings = NSDictionary(contentsOfFile: "\(path)/Wikipedia/Localizations/\(locale).lproj/Localizable.strings") else {
+                try? fm.removeItem(atPath: localeFolder)
                 continue
             }
+            
+            let stringsDictFilePath = "\(localeFolder)/Localizable.stringsdict"
+            let stringsFilePath = "\(localeFolder)/Localizable.strings"
+            
             let stringsDict = NSMutableDictionary(capacity: twnStrings.count)
             let strings = NSMutableDictionary(capacity: twnStrings.count)
             for (key, value) in twnStrings {
@@ -384,60 +488,54 @@ func importLocalizationsFromTWN(_ path: String) {
                 let nativeLocalization = twnString.iOSNativeLocalization(tokens: enTokens)
                 let nativeLocalizationTokens = nativeLocalization.iOSTokenDictionary
                 guard nativeLocalizationTokens == enTokens else {
-                    //print("Mismatched tokens in \(locale) for \(key):\n\(enDictionary[key] ?? "")\n\(nativeLocalization)")
+                    #if DEBUG
+                    print("Mismatched tokens in \(locale) for \(key):\n\(enDictionary[key] ?? "")\n\(nativeLocalization)")
+                    #endif
                     continue
                 }
                 if twnString.contains("{{PLURAL:") {
                     let lang = locale.components(separatedBy: "-").first ?? ""
                     let keys = keysByLanguage[lang] ?? defaultKeys
-                    stringsDict[key] = twnString.pluralDictionary(with: keys, tokens:enTokens)
+                    stringsDict[key] = twnString.pluralDictionary(with: keys, tokens:enTokens, supportsOneEquals: locale == "en")
                     strings[key] = nativeLocalization
                 } else {
                     strings[key] = nativeLocalization
                 }
             }
-            let stringsFilePath = "\(path)/Wikipedia/iOS Native Localizations/\(locale).lproj/Localizable.strings"
             if locale != "en" { // only write the english plurals, skip the main file
                 if strings.count > 0 {
                     try writeStrings(fromDictionary: strings, toFile: stringsFilePath)
-                    
-                    // If we have a localized app store description, write a fastlane "description.txt" to a folder for its locale.
-                    if let localizedDescription = strings["app-store-short-description"] as? String {
-                        try writeFastlaneAppStoreLocalizedMetadataFile(fileName: "description.txt", contents: localizedDescription, locale: locale, path: path)
-                    }
-                    
-                    // If we have a localized app store subtitle, write a fastlane "subtitle.txt" to a folder for its locale.
-                    if let localizedSubtitle = strings["app-store-subtitle"] as? String {
-                        try writeFastlaneAppStoreLocalizedMetadataFile(fileName: "subtitle.txt", contents: localizedSubtitle, locale: locale, path: path)
-                    }
-
-                    // If we have localized app store release notes, write a fastlane "release_notes.txt" to a folder for its locale.
-                    if let localizedReleaseNotes = strings["app-store-release-notes"] as? String {
-                        try writeFastlaneAppStoreLocalizedMetadataFile(fileName: "release_notes.txt", contents: localizedReleaseNotes, locale: locale, path: path)
-                    }
-                    
-                    // If we have localized app store keywords, write a fastlane "keywords.txt" to a folder for its locale.
-                    if let localizedKeywords = strings["app-store-keywords"] as? String {
-                        try writeFastlaneAppStoreLocalizedMetadataFile(fileName: "keywords.txt", contents: localizedKeywords, locale: locale, path: path)
-                    }
-                    
                 } else {
-                    do {
-                        try fm.removeItem(atPath: stringsFilePath)
-                    } catch { }
+                    try? fm.removeItem(atPath: stringsFilePath)
                 }
-                
-                // If we have a localized app name for "Wikipedia", write a fastlane "name.txt" to a folder for its locale.
-                let infoPlistPath = "\(path)/Wikipedia/iOS Native Localizations/\(locale).lproj/InfoPlist.strings"
-                if let infoPlist = NSDictionary(contentsOfFile: infoPlistPath), let localizedAppName = infoPlist["CFBundleDisplayName"] as? String, localizedAppName.count > 0, localizedAppName != "Wikipedia" {
-                    try writeFastlaneAppStoreLocalizedMetadataFile(fileName: "name.txt", contents: localizedAppName, locale: locale, path: path)
-                }
-
             } else {
                 englishPluralDictionary = stringsDict
             }
             
-            let stringsDictFilePath = "\(path)/Wikipedia/iOS Native Localizations/\(locale).lproj/Localizable.stringsdict"
+           
+            if let metadataLocales = appStoreMetadataLocales[locale] {
+                for metadataLocale in metadataLocales {
+                    let folderURL = fileURLForFastlaneMetadataFolder(for: metadataLocale)
+                    try fm.createDirectory(at: folderURL, withIntermediateDirectories: true, attributes: nil)
+                    
+                    let infoPlistPath = "\(path)/Wikipedia/iOS Native Localizations/\(locale).lproj/InfoPlist.strings"
+                    let infoPlist = NSDictionary(contentsOfFile: infoPlistPath)
+                    
+                    try? writeFastlaneMetadata(strings["app-store-short-description"], to: "description.txt", for: metadataLocale)
+                    try? writeFastlaneMetadata(strings["app-store-keywords"], to: "keywords.txt", for: metadataLocale)
+                    try? writeFastlaneMetadata(nil, to: "marketing_url.txt", for: metadataLocale) // use nil to copy from en-US. all fields need to be specified.
+                    try? writeFastlaneMetadata(infoPlist?["CFBundleDisplayName"], to: "name.txt", for: metadataLocale)
+                    try? writeFastlaneMetadata(nil, to: "privacy_url.txt", for: metadataLocale) // use nil to copy from en-US. all fields need to be specified.
+                    try? writeFastlaneMetadata(nil, to: "promotional_text.txt", for: metadataLocale) // use nil to copy from en-US. all fields need to be specified.
+                    try? writeFastlaneMetadata(nil, to: "release_notes.txt", for: metadataLocale) // use nil to copy from en-US. all fields need to be specified.
+                    try? writeFastlaneMetadata(strings["app-store-subtitle"], to: "subtitle.txt", for: metadataLocale)
+                    try? writeFastlaneMetadata(nil, to: "support_url.txt", for: metadataLocale) // use nil to copy from en-US. all fields need to be specified.
+                }
+            
+            } else {
+                let folderURL = fileURLForFastlaneMetadataFolder(for: locale)
+                try? fm.removeItem(at: folderURL)
+            }
             
             if stringsDict.count > 0 {
                 stringsDict.write(toFile: stringsDictFilePath, atomically: true)
@@ -457,9 +555,69 @@ func importLocalizationsFromTWN(_ path: String) {
     }
 }
 
+// Sync to PCS strings for https://phabricator.wikimedia.org/T246529
+// Remove once is https://phabricator.wikimedia.org/T246659 resolved
 
+let pcsi18nKeys = [
+    "article-about-title",
+    "article-read-more-title",
+    "description-add-link-title",
+    "info-box-title",
+    "table-title-other",
+    "info-box-close-text",
+    "license-footer-text",
+    "license-footer-name",
+    "view-in-browser-footer-link",
+    "page-read-in-other-languages",
+    "page-last-edited",
+    "page-edit-history",
+    "page-talk-page",
+    "page-talk-page-subtitle",
+    "page-issues",
+    "page-issues-subtitle",
+    "page-similar-titles",
+    "page-location"
+]
 
+func exportPCSi18nJSON(localizationFileURL: URL, outputFileURL: URL) {
+    guard let dictionary = NSDictionary(contentsOf: localizationFileURL) else {
+        print("Unable to read \(localizationFileURL)")
+        return
+    }
+    var output: [String: String] = [:]
+    for key in pcsi18nKeys {
+        output[key] = dictionary[key] as? String
+    }
+    guard !output.isEmpty else {
+        return
+    }
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = .prettyPrinted
+    guard let data = try? encoder.encode(output) else {
+        return
+    }
+    try? data.write(to: outputFileURL)
+}
 
+func exportPageContentServiceStrings(_ path: String) throws {
+    let iOSENPath = "\(path)/Wikipedia/iOS Native Localizations/en.lproj/Localizable.strings"
+
+    let fm = FileManager.default
+    let outputFolderURL = URL(fileURLWithPath: path).appendingPathComponent("pcs").appendingPathComponent("i18n")
+    try fm.createDirectory(at: outputFolderURL, withIntermediateDirectories: true, attributes: nil)
+    
+    exportPCSi18nJSON(localizationFileURL: URL(fileURLWithPath: iOSENPath), outputFileURL: outputFolderURL.appendingPathComponent("en.json"))
+    
+    let contents = try fm.contentsOfDirectory(atPath: "\(path)/Wikipedia/Localizations")
+    for filename in contents {
+        guard let locale = filename.components(separatedBy: ".").first?.lowercased() else {
+            continue
+        }
+        
+        let fileURL = URL(fileURLWithPath: "\(path)/Wikipedia/Localizations/\(locale).lproj/Localizable.strings")
+        exportPCSi18nJSON(localizationFileURL: fileURL, outputFileURL: outputFolderURL.appendingPathComponent("\(locale).json"))
+    }
+}
 
 // Code that updated source translations
 //  var replacements = [String: String]()

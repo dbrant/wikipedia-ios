@@ -1,5 +1,6 @@
 #import "WMFAppViewController.h"
 @import WMF;
+@import SystemConfiguration;
 #import "Wikipedia-Swift.h"
 
 #define DEBUG_THEMES 1
@@ -8,9 +9,6 @@
 #import <Tweaks/FBTweakInline.h>
 #endif
 
-// Networking
-#import "SavedArticlesFetcher.h"
-
 // Views
 #import "UIViewController+WMFStoryboardUtilities.h"
 #import "UIApplicationShortcutItem+WMFShortcutItem.h"
@@ -18,34 +16,23 @@
 // View Controllers
 #import "WMFSettingsViewController.h"
 #import "WMFFirstRandomViewController.h"
-#import "WMFRandomArticleViewController.h"
-#import "UIViewController+WMFArticlePresentation.h"
-#import "UINavigationController+WMFHideEmptyToolbar.h"
 
 #import "AppDelegate.h"
 
 #import "WMFDailyStatsLoggingFunnel.h"
 
-#import "UIViewController+WMFOpenExternalUrl.h"
-
-#import "WMFArticleNavigationController.h"
-#import "WMFSearchButton.h"
 #import "Wikipedia-Swift.h"
 #import "EXTScope.h"
 
 /**
  *  Enums for each tab in the main tab bar.
- *
- *  @warning Be sure to update `WMFAppTabCount` when these enums change, and always initialize the first enum to 0.
- *
- *  @see WMFAppTabCount
  */
 typedef NS_ENUM(NSUInteger, WMFAppTabType) {
     WMFAppTabTypeMain = 0,
-    WMFAppTabTypePlaces,
-    WMFAppTabTypeSaved,
-    WMFAppTabTypeRecent,
-    WMFAppTabTypeSearch
+    WMFAppTabTypePlaces = 1,
+    WMFAppTabTypeSaved = 2,
+    WMFAppTabTypeRecent = 3,
+    WMFAppTabTypeSearch = 4
 };
 
 /**
@@ -58,7 +45,6 @@ typedef NS_ENUM(NSUInteger, WMFAppTabType) {
  *
  *  @see WMFAppTabType
  */
-static NSUInteger const WMFAppTabCount = WMFAppTabTypeSearch + 1;
 
 static NSTimeInterval const WMFTimeBeforeShowingExploreScreenOnLaunch = 24 * 60 * 60;
 
@@ -68,7 +54,7 @@ static NSString *const WMFLastRemoteAppConfigCheckAbsoluteTimeKey = @"WMFLastRem
 static const NSString *kvo_NSUserDefaults_defaultTabType = @"kvo_NSUserDefaults_defaultTabType";
 static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFetcher_progress";
 
-@interface WMFAppViewController () <UITabBarControllerDelegate, UINavigationControllerDelegate, UIGestureRecognizerDelegate, WMFThemeable, ReadMoreAboutRevertedEditViewControllerDelegate>
+@interface WMFAppViewController () <UITabBarControllerDelegate, UINavigationControllerDelegate, UIGestureRecognizerDelegate, WMFThemeable, ReadMoreAboutRevertedEditViewControllerDelegate, WMFWorkerControllerDelegate, WMFThemeableNavigationControllerDelegate>
 
 @property (nonatomic, strong) WMFPeriodicWorkerController *periodicWorkerController;
 @property (nonatomic, strong) WMFBackgroundFetcherController *backgroundFetcherController;
@@ -84,10 +70,11 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 @property (nonatomic, strong, readonly) WMFPlacesViewController *placesViewController;
 @property (nonatomic, strong, readonly) WMFHistoryViewController *recentArticlesViewController;
 
-@property (nonatomic, strong) SavedArticlesFetcher *savedArticlesFetcher;
-@property (nonatomic, strong, readonly) SessionSingleton *session;
+@property (nonatomic, strong) WMFSavedArticlesFetcher *savedArticlesFetcher;
 
-@property (nonatomic, strong, readonly) MWKDataStore *dataStore;
+@property (nonatomic, strong) WMFMobileViewToMobileHTMLMigrationController *mobileViewToMobileHTMLMigrationController;
+
+@property (nonatomic, strong, readwrite) MWKDataStore *dataStore;
 
 @property (nonatomic, strong) WMFDatabaseHouseKeeper *houseKeeper;
 
@@ -96,9 +83,7 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 @property (nonatomic, strong) NSUserActivity *unprocessedUserActivity;
 @property (nonatomic, strong) UIApplicationShortcutItem *unprocessedShortcutItem;
 
-@property (nonatomic) UIBackgroundTaskIdentifier housekeepingBackgroundTaskIdentifier;
-@property (nonatomic) UIBackgroundTaskIdentifier migrationBackgroundTaskIdentifier;
-@property (nonatomic) UIBackgroundTaskIdentifier feedContentFetchBackgroundTaskIdentifier;
+@property (nonatomic, strong) NSMutableDictionary *backgroundTasks;
 
 @property (nonatomic, strong) WMFNotificationsController *notificationsController;
 
@@ -110,8 +95,6 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 @property (nonatomic, getter=isCheckingRemoteConfig) BOOL checkingRemoteConfig;
 
 @property (nonatomic, copy) NSDictionary *notificationUserInfoToShow;
-
-@property (nonatomic, strong) WMFTaskGroup *backgroundTaskGroup;
 
 @property (nonatomic, strong) WMFTheme *theme;
 
@@ -127,6 +110,16 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 
 @property (nonatomic, strong) RemoteNotificationsModelChangeResponseCoordinator *remoteNotificationsModelChangeResponseCoordinator;
 
+@property (nonatomic, strong) WMFReadingListHintController *readingListHintController;
+@property (nonatomic, strong) WMFEditHintController *editHintController;
+
+@property (nonatomic, strong) WMFNavigationStateController *navigationStateController;
+@property (nonatomic, strong) WMFTalkPageReplyHintController *talkPageReplyHintController;
+@property (nonatomic, strong) WMFTalkPageTopicHintController *talkPageTopicHintController;
+
+@property (nonatomic, strong) WMFConfiguration *configuration;
+@property (nonatomic, strong) WMFViewControllerRouter *router;
+
 @end
 
 @implementation WMFAppViewController
@@ -139,19 +132,24 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
-    [[NSUserDefaults wmf] removeObserver:self forKeyPath:[WMFUserDefaultsKey defaultTabType]];
+    [[NSUserDefaults standardUserDefaults] removeObserver:self forKeyPath:[WMFUserDefaultsKey defaultTabType]];
+    [NSObject cancelPreviousPerformRequestsWithTarget:self];
+}
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        self.configuration = [WMFConfiguration current];
+        self.router = [[WMFViewControllerRouter alloc] initWithAppViewController:self router:self.configuration.router];
+    }
+    return self;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.theme = [[NSUserDefaults wmf] wmf_appTheme];
+    self.theme = [[NSUserDefaults standardUserDefaults] themeCompatibleWith:self.traitCollection];
 
-    self.housekeepingBackgroundTaskIdentifier = UIBackgroundTaskInvalid;
-    self.migrationBackgroundTaskIdentifier = UIBackgroundTaskInvalid;
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(isZeroRatedChanged:)
-                                                 name:WMFZeroRatingChanged
-                                               object:nil];
+    self.backgroundTasks = [NSMutableDictionary dictionaryWithCapacity:5];
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(navigateToActivityNotification:)
@@ -159,7 +157,7 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
                                                object:nil];
 
     [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(changeTheme:)
+                                             selector:@selector(userDidChangeTheme:)
                                                  name:WMFReadingThemesControlsViewController.WMFUserDidSelectThemeNotification
                                                object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self
@@ -199,10 +197,10 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(articleSaveToDiskDidFail:)
-                                                 name:WMFArticleSaveToDiskDidFailNotification
+                                                 name:[WMFSavedArticlesFetcher saveToDiskDidFail]
                                                object:nil];
 
-    [[NSUserDefaults wmf] addObserver:self
+    [[NSUserDefaults standardUserDefaults] addObserver:self
                            forKeyPath:[WMFUserDefaultsKey defaultTabType]
                               options:NSKeyValueObservingOptionNew
                               context:&kvo_NSUserDefaults_defaultTabType];
@@ -217,7 +215,30 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
                                                  name:[RemoteNotificationsModelControllerNotification modelDidChange]
                                                object:nil];
 
-    self.readingListsAlertController = [[WMFReadingListsAlertController alloc] init];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(userWasLoggedOut:)
+                                                 name:[WMFAuthenticationManager didLogOutNotification]
+                                               object:nil];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(editWasPublished:)
+                                                 name:[WMFSectionEditorViewController editWasPublished]
+                                               object:nil];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(descriptionEditWasPublished:)
+                                                 name:[DescriptionEditViewController didPublishNotification]
+                                               object:nil];
+
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(talkPageReplyWasPublished:) name:WMFTalkPageContainerViewController.WMFReplyPublishedNotificationName object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(talkPageTopicWasPublished:) name:WMFTalkPageContainerViewController.WMFTopicPublishedNotificationName object:nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(referenceLinkTapped:) name:WMFReferenceLinkTappedNotification object:nil];
+
+    [self setupReadingListsHelpers];
+    self.editHintController = [[WMFEditHintController alloc] init];
+    self.talkPageReplyHintController = [[WMFTalkPageReplyHintController alloc] init];
+    self.talkPageTopicHintController = [[WMFTalkPageTopicHintController alloc] init];
 }
 
 - (UIStatusBarStyle)preferredStatusBarStyle {
@@ -247,12 +268,14 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 #pragma mark - Setup
 
 - (void)setupControllers {
-    self.periodicWorkerController = [[WMFPeriodicWorkerController alloc] initWithInterval:30 initialDelay:15 leeway:15];
+    self.periodicWorkerController = [[WMFPeriodicWorkerController alloc] initWithInterval:30 initialDelay:1 leeway:15];
+    self.periodicWorkerController.delegate = self;
     [self.periodicWorkerController add:self.dataStore.readingListsController];
     [self.periodicWorkerController add:self.dataStore.remoteNotificationsController];
     [self.periodicWorkerController add:[WMFEventLoggingService sharedInstance]];
-    
+
     self.backgroundFetcherController = [[WMFBackgroundFetcherController alloc] init];
+    self.backgroundFetcherController.delegate = self;
     [self.backgroundFetcherController add:self.dataStore.readingListsController];
     [self.backgroundFetcherController add:self.dataStore.remoteNotificationsController];
     [self.backgroundFetcherController add:(id<WMFBackgroundFetcher>)self.dataStore.feedContentController];
@@ -264,39 +287,41 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
         return;
     }
 
+    [self configureTabController];
+
     self.tabBar.tintAdjustmentMode = UIViewTintAdjustmentModeNormal;
-
-    WMFArticleNavigationController *exploreNavC = [[WMFArticleNavigationController alloc] initWithRootViewController:[self exploreViewController]];
-    exploreNavC.tabBarItem.image = [UIImage imageNamed:@"tabbar-explore"];
-    WMFArticleNavigationController *placesNavC = [[WMFArticleNavigationController alloc] initWithRootViewController:[self placesViewController]];
-    placesNavC.tabBarItem.image = [UIImage imageNamed:@"tabbar-nearby"];
-    WMFArticleNavigationController *savedNavC = [[WMFArticleNavigationController alloc] initWithRootViewController:[self savedViewController]];
-    savedNavC.tabBarItem.image = [UIImage imageNamed:@"tabbar-save"];
-    WMFArticleNavigationController *historyNavC = [[WMFArticleNavigationController alloc] initWithRootViewController:[self recentArticlesViewController]];
-    historyNavC.tabBarItem.image = [UIImage imageNamed:@"tabbar-recent"];
-    WMFArticleNavigationController *searchNavC = [[WMFArticleNavigationController alloc] initWithRootViewController:[self searchViewController]];
-    searchNavC.tabBarItem.image = [UIImage imageNamed:@"search"];
-
-    NSArray<WMFArticleNavigationController *> *navigationControllers = @[exploreNavC, placesNavC, savedNavC, historyNavC, searchNavC];
-    for (WMFArticleNavigationController *navC in navigationControllers) {
-        navC.extendedLayoutIncludesOpaqueBars = YES;
-        [navC setNavigationBarHidden:YES animated:NO];
-    }
-    [self setViewControllers:navigationControllers animated:NO];
 
     [self applyTheme:self.theme];
 
     self.transitionsController = [WMFViewControllerTransitionsController new];
-    [self configureTabController];
 
     self.recentArticlesViewController.dataStore = self.dataStore;
     [self.searchViewController applyTheme:self.theme];
     [self.settingsViewController applyTheme:self.theme];
 
-    UITabBarItem *savedTabBarItem = [[self navigationControllerForTab:WMFAppTabTypeSaved] tabBarItem];
+    UITabBarItem *savedTabBarItem = [self.savedViewController tabBarItem];
     self.savedTabBarItemProgressBadgeManager = [[SavedTabBarItemProgressBadgeManager alloc] initWithTabBarItem:savedTabBarItem];
+}
 
-    BOOL shouldOpenAppOnSearchTab = [NSUserDefaults wmf].wmf_openAppOnSearchTab;
+- (void)configureTabController {
+    self.delegate = self;
+
+    UIViewController *mainViewController = nil;
+
+    switch ([NSUserDefaults standardUserDefaults].defaultTabType) {
+        case WMFAppDefaultTabTypeSettings:
+            mainViewController = self.settingsViewController;
+            break;
+        default:
+            mainViewController = self.exploreViewController;
+            break;
+    }
+
+    NSArray<UIViewController *> *viewControllers = @[mainViewController, [self placesViewController], [self savedViewController], [self recentArticlesViewController], [self searchViewController]];
+
+    [self setViewControllers:viewControllers animated:NO];
+
+    BOOL shouldOpenAppOnSearchTab = [NSUserDefaults standardUserDefaults].wmf_openAppOnSearchTab;
     if (shouldOpenAppOnSearchTab && self.selectedIndex != WMFAppTabTypeSearch) {
         [self setSelectedIndex:WMFAppTabTypeSearch];
     } else if (self.selectedIndex != WMFAppTabTypeMain) {
@@ -304,80 +329,50 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
     }
 }
 
-- (void)configureTabController {
-    self.delegate = self;
-    for (WMFAppTabType i = 0; i < WMFAppTabCount; i++) {
-        UINavigationController *navigationController = [self navigationControllerForTab:i];
-        navigationController.delegate = self;
-        navigationController.interactivePopGestureRecognizer.delegate = self;
-        switch (i) {
-            case WMFAppTabTypeSaved:
-                navigationController.title = [WMFCommonStrings savedTabTitle];
-                break;
-            case WMFAppTabTypePlaces:
-                navigationController.title = [WMFCommonStrings placesTabTitle];
-                break;
-            case WMFAppTabTypeRecent:
-                navigationController.title = [WMFCommonStrings historyTabTitle];
-                break;
-            case WMFAppTabTypeSearch:
-                navigationController.title = [WMFCommonStrings searchTitle];
-                break;
-            case WMFAppTabTypeMain:
-                [self configureDefaultNavigationController:navigationController animated:NO];
-                break;
-            default:
-                break;
-        }
-    }
+- (void)setupReadingListsHelpers {
+    self.readingListsAlertController = [[WMFReadingListsAlertController alloc] init];
+    self.readingListHintController = [[WMFReadingListHintController alloc] initWithDataStore:self.dataStore];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(userDidSaveOrUnsaveArticle:) name:WMFReadingListsController.userDidSaveOrUnsaveArticleNotification object:nil];
 }
 
-- (void)configureDefaultNavigationController:(UINavigationController *)navigationController animated:(BOOL)animated {
-    switch ([NSUserDefaults wmf].defaultTabType) {
-        case WMFAppDefaultTabTypeExplore:
-            navigationController.title = [WMFCommonStrings exploreTabTitle];
-            [navigationController setNavigationBarHidden:YES animated:animated];
-            navigationController.viewControllers = @[self.exploreViewController];
-            [self configureExploreViewController];
-            break;
-        case WMFAppDefaultTabTypeSettings:
-            navigationController.viewControllers = @[self.settingsViewController];
-            navigationController.title = [WMFCommonStrings settingsTitle];
-            self.settingsViewController.navigationItem.title = [WMFCommonStrings settingsTitle];
+- (void)userDidSaveOrUnsaveArticle:(NSNotification *)note {
+    WMFAssertMainThread(@"User save/unsave article notification should only be posted on the main thread");
+    id maybeArticle = [note object];
+    if (![maybeArticle isKindOfClass:[WMFArticle class]]) {
+        return;
     }
-}
-
-- (void)configureExploreViewController {
-    [self.exploreViewController applyTheme:self.theme];
-    UIBarButtonItem *settingsBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"settings"] style:UIBarButtonItemStylePlain target:self action:@selector(showSettings)];
-    settingsBarButtonItem.accessibilityLabel = [WMFCommonStrings settingsTitle];
-    self.exploreViewController.navigationItem.rightBarButtonItem = settingsBarButtonItem;
+    [self showReadingListHintForArticle:(WMFArticle *)maybeArticle];
 }
 
 #pragma mark - Notifications
 
 - (void)appWillEnterForegroundWithNotification:(NSNotification *)note {
+    // Don't access anything that can't be accessed in the background without starting a background task. For example, don't use anything in the shared app container like all of the Core Data persistent stores
     self.unprocessedUserActivity = nil;
     self.unprocessedShortcutItem = nil;
+}
 
+// When the user launches from a terminated state, resume might not finish before didBecomeActive, so these tasks are held until both items complete
+- (void)performTasksThatShouldOccurAfterBecomeActiveAndResume {
     [[SessionsFunnel shared] logSessionStart];
     [UserHistoryFunnel.shared logSnapshot];
-
-    // Retry migration if it was terminated by a background task ending
-    [self migrateIfNecessary];
-
-    if (self.isResumeComplete) {
-        [self checkRemoteAppConfigIfNecessary];
-        [self.periodicWorkerController start];
-        [self.savedArticlesFetcher start];
-    }
+    [self checkRemoteAppConfigIfNecessary];
+    [self.periodicWorkerController start];
+    [self.savedArticlesFetcher start];
+    [self.mobileViewToMobileHTMLMigrationController start];
+    self.notificationsController.applicationActive = YES;
 }
 
 - (void)appDidBecomeActiveWithNotification:(NSNotification *)note {
-    self.notificationsController.applicationActive = YES;
+    // Retry migration if it was terminated by a background task ending
+    [self migrateIfNecessary];
 
     if (![self uiIsLoaded]) {
         return;
+    }
+
+    if (self.isResumeComplete) {
+        [self performTasksThatShouldOccurAfterBecomeActiveAndResume];
     }
 
 #if WMF_TWEAKS_ENABLED
@@ -388,12 +383,10 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 }
 
 - (void)appWillResignActiveWithNotification:(NSNotification *)note {
-    self.notificationsController.applicationActive = NO;
-
     if (![self uiIsLoaded]) {
         return;
     }
-
+    [self.navigationStateController saveNavigationStateFor:self.navigationController in:self.dataStore.viewContext];
     NSError *saveError = nil;
     if (![self.dataStore save:&saveError]) {
         DDLogError(@"Error saving dataStore: %@", saveError);
@@ -418,7 +411,6 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 - (void)preferredLanguagesDidChange:(NSNotification *)note {
     [self updateExploreFeedPreferencesIfNecessary];
     self.dataStore.feedContentController.siteURLs = [[MWKLanguageLinkController sharedInstance] preferredSiteURLs];
-    [self configureExploreViewController];
 }
 
 /**
@@ -474,7 +466,7 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
             self.hasSyncErrorBeenShownThisSesssion = YES; //only show sync error once for multiple failed syncs
             [[WMFAlertManager sharedInstance] showWarningAlert:WMFLocalizedStringWithDefaultValue(@"reading-lists-sync-error-no-internet-connection", nil, nil, @"Syncing will resume when internet connection is available", @"Alert message informing user that syncing will resume when internet connection is available.")
                                                         sticky:YES
-                                         dismissPreviousAlerts:YES
+                                         dismissPreviousAlerts:NO
                                                    tapCallBack:nil];
         }
     }
@@ -484,13 +476,9 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
         if ([[NSDate date] timeIntervalSinceDate:self.syncStartDate] >= 5) {
             NSInteger syncedReadingListsCount = [note.userInfo[WMFReadingListsController.syncDidFinishSyncedReadingListsCountKey] integerValue];
             NSInteger syncedReadingListEntriesCount = [note.userInfo[WMFReadingListsController.syncDidFinishSyncedReadingListEntriesCountKey] integerValue];
-            if (syncedReadingListsCount > 1 && syncedReadingListEntriesCount > 1) { // // TODO: When localization script supports multiple plurals per string, update to > 0
-                // TODO: When localization script supports multiple plurals per string, update to use plurals.
-                NSString *alertTitle = [NSString stringWithFormat:WMFLocalizedStringWithDefaultValue(@"reading-lists-large-sync-completed", nil, nil, @"%1$d articles and %2$d reading lists synced from your account", @"Alert message informing user that large sync was completed. %1$d will be replaced with the number of articles which were synced and %2$d will be replaced with the number of reading lists which were synced"), syncedReadingListEntriesCount, syncedReadingListsCount];
-                [[WMFAlertManager sharedInstance] showSuccessAlert:alertTitle
-                                                            sticky:YES
-                                             dismissPreviousAlerts:YES
-                                                       tapCallBack:nil];
+            if (syncedReadingListsCount > 0 && syncedReadingListEntriesCount > 0) {
+                NSString *alertTitle = [NSString stringWithFormat:WMFLocalizedStringWithDefaultValue(@"reading-lists-large-sync-completed", nil, nil, @"{{PLURAL:%1$d|%1$d article|%1$d articles}} and {{PLURAL:%2$d|%2$d reading list|%2$d reading lists}} synced from your account", @"Alert message informing user that large sync was completed. %1$d will be replaced with the number of articles which were synced and %2$d will be replaced with the number of reading lists which were synced"), syncedReadingListEntriesCount, syncedReadingListsCount];
+                [[WMFAlertManager sharedInstance] showSuccessAlert:alertTitle sticky:YES dismissPreviousAlerts:YES tapCallBack:nil];
             }
         }
     }
@@ -515,11 +503,10 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 
 - (void)updateDefaultTab {
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self.settingsNavigationController popToRootViewControllerAnimated:NO];
         dispatch_block_t update = ^{
             [self setSelectedIndex:WMFAppTabTypeSearch];
-            [[self navigationControllerForTab:WMFAppTabTypeSearch] popToRootViewControllerAnimated:NO];
-            [self configureDefaultNavigationController:[self navigationControllerForTab:WMFAppTabTypeMain] animated:NO];
+            [self.navigationController popToRootViewControllerAnimated:NO];
+            [self configureTabController];
         };
         if (self.presentedViewController) {
             [self.presentedViewController dismissViewControllerAnimated:YES completion:update];
@@ -529,11 +516,75 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
     });
 }
 
+#pragma mark - Hint
+
+- (void)showReadingListHintForArticle:(WMFArticle *)article {
+    UIViewController<WMFHintPresenting> *visibleHintPresentingViewController = [self visibleHintPresentingViewController];
+    if (!visibleHintPresentingViewController) {
+        return;
+    }
+    [self toggleHint:self.readingListHintController context:@{WMFReadingListHintController.ContextArticleKey: article}];
+}
+
+- (void)editWasPublished:(NSNotification *)note {
+    if (![NSUserDefaults.standardUserDefaults wmf_didShowFirstEditPublishedPanel]) {
+        return;
+    }
+    [self toggleHint:self.editHintController context:nil];
+}
+
+- (void)descriptionEditWasPublished:(NSNotification *)note {
+    if (![NSUserDefaults.standardUserDefaults didShowDescriptionPublishedPanel]) {
+        return;
+    }
+    [self toggleHint:self.editHintController context:nil];
+}
+
+- (void)talkPageReplyWasPublished:(NSNotification *)note {
+    [self toggleHint:self.talkPageReplyHintController context:nil];
+}
+
+- (void)talkPageTopicWasPublished:(NSNotification *)note {
+    [self toggleHint:self.talkPageTopicHintController context:nil];
+}
+
+- (void)referenceLinkTapped:(NSNotification *)note {
+    id maybeURL = [note object];
+    if (![maybeURL isKindOfClass:[NSURL class]]) {
+        return;
+    }
+    [self wmf_navigateToURL:maybeURL];
+}
+
+- (void)toggleHint:(HintController *)hintController context:(nullable NSDictionary<NSString *, id> *)context {
+    UIViewController<WMFHintPresenting> *visibleHintPresentingViewController = [self visibleHintPresentingViewController];
+    if (!visibleHintPresentingViewController) {
+        return;
+    }
+    [hintController toggleWithPresenter:visibleHintPresentingViewController context:context theme:self.theme];
+}
+
+- (UIViewController *)visibleViewController {
+    UIViewController *visibleViewController = self.navigationController.visibleViewController;
+    if (visibleViewController == self) {
+        return self.selectedViewController;
+    }
+    return visibleViewController;
+}
+
+- (UIViewController<WMFHintPresenting> *)visibleHintPresentingViewController {
+    UIViewController *visibleViewController = [self visibleViewController];
+    if (![visibleViewController conformsToProtocol:@protocol(WMFHintPresenting)]) {
+        return nil;
+    }
+    return (UIViewController<WMFHintPresenting> *)visibleViewController;
+}
+
 #pragma mark - Background Fetch
 
 - (void)performBackgroundFetchWithCompletion:(void (^)(UIBackgroundFetchResult))completion {
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (!self.isMigrationComplete) {
+        if (!self.isMigrationComplete || !self.backgroundFetcherController) {
             completion(UIBackgroundFetchResultNoData);
             return;
         }
@@ -544,12 +595,89 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 
 #pragma mark - Background Tasks
 
+- (UIBackgroundTaskIdentifier)backgroundTaskIdentifierForKey:(NSString *)key {
+    if (!key) {
+        return UIBackgroundTaskInvalid;
+    }
+    @synchronized(self.backgroundTasks) {
+        NSNumber *identifierNumber = self.backgroundTasks[key];
+        if (!identifierNumber) {
+            return UIBackgroundTaskInvalid;
+        }
+        return [identifierNumber unsignedIntegerValue];
+    }
+}
+
+- (void)setBackgroundTaskIdentifier:(UIBackgroundTaskIdentifier)identifier forKey:(NSString *)key {
+    if (!key) {
+        return;
+    }
+    @synchronized(self.backgroundTasks) {
+        if (identifier == UIBackgroundTaskInvalid) {
+            [self.backgroundTasks removeObjectForKey:key];
+            return;
+        }
+        self.backgroundTasks[key] = @(identifier);
+    }
+}
+
+- (UIBackgroundTaskIdentifier)housekeepingBackgroundTaskIdentifier {
+    return [self backgroundTaskIdentifierForKey:@"housekeeping"];
+}
+
+- (void)setHousekeepingBackgroundTaskIdentifier:(UIBackgroundTaskIdentifier)identifier {
+    [self setBackgroundTaskIdentifier:identifier forKey:@"housekeeping"];
+}
+
+- (UIBackgroundTaskIdentifier)migrationBackgroundTaskIdentifier {
+    return [self backgroundTaskIdentifierForKey:@"migration"];
+}
+
+- (void)setMigrationBackgroundTaskIdentifier:(UIBackgroundTaskIdentifier)identifier {
+    [self setBackgroundTaskIdentifier:identifier forKey:@"migration"];
+}
+
+- (UIBackgroundTaskIdentifier)feedContentFetchBackgroundTaskIdentifier {
+    return [self backgroundTaskIdentifierForKey:@"feed"];
+}
+
+- (void)setFeedContentFetchBackgroundTaskIdentifier:(UIBackgroundTaskIdentifier)identifier {
+    [self setBackgroundTaskIdentifier:identifier forKey:@"feed"];
+}
+
+- (UIBackgroundTaskIdentifier)remoteConfigCheckBackgroundTaskIdentifier {
+    return [self backgroundTaskIdentifierForKey:@"remoteConfigCheck"];
+}
+
+- (void)setRemoteConfigCheckBackgroundTaskIdentifier:(UIBackgroundTaskIdentifier)identifier {
+    [self setBackgroundTaskIdentifier:identifier forKey:@"remoteConfigCheck"];
+}
+
+- (void)startRemoteConfigCheckBackgroundTask:(dispatch_block_t)expirationHandler {
+    if (self.remoteConfigCheckBackgroundTaskIdentifier != UIBackgroundTaskInvalid) {
+        return;
+    }
+    self.remoteConfigCheckBackgroundTaskIdentifier = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
+        if (expirationHandler) {
+            expirationHandler();
+        }
+    }];
+}
+
+- (void)endRemoteConfigCheckBackgroundTask {
+    if (self.remoteConfigCheckBackgroundTaskIdentifier == UIBackgroundTaskInvalid) {
+        return;
+    }
+    UIBackgroundTaskIdentifier backgroundTaskToStop = self.remoteConfigCheckBackgroundTaskIdentifier;
+    self.remoteConfigCheckBackgroundTaskIdentifier = UIBackgroundTaskInvalid;
+    [[UIApplication sharedApplication] endBackgroundTask:backgroundTaskToStop];
+}
+
 - (void)startHousekeepingBackgroundTask {
     if (self.housekeepingBackgroundTaskIdentifier != UIBackgroundTaskInvalid) {
         return;
     }
     self.housekeepingBackgroundTaskIdentifier = [[UIApplication sharedApplication] beginBackgroundTaskWithExpirationHandler:^{
-        [self.dataStore stopCacheRemoval];
         [self endHousekeepingBackgroundTask];
     }];
 }
@@ -558,7 +686,6 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
     if (self.housekeepingBackgroundTaskIdentifier == UIBackgroundTaskInvalid) {
         return;
     }
-
     UIBackgroundTaskIdentifier backgroundTaskToStop = self.housekeepingBackgroundTaskIdentifier;
     self.housekeepingBackgroundTaskIdentifier = UIBackgroundTaskInvalid;
     [[UIApplication sharedApplication] endBackgroundTask:backgroundTaskToStop];
@@ -606,8 +733,15 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 - (void)launchAppInWindow:(UIWindow *)window waitToResumeApp:(BOOL)waitToResumeApp {
     self.waitingToResumeApp = waitToResumeApp;
 
-    [window setRootViewController:self];
+    WMFThemeableNavigationController *articleNavigationController = [[WMFThemeableNavigationController alloc] initWithRootViewController:self];
+    articleNavigationController.themeableNavigationControllerDelegate = self;
+    articleNavigationController.delegate = self;
+    articleNavigationController.interactivePopGestureRecognizer.delegate = self;
+    articleNavigationController.extendedLayoutIncludesOpaqueBars = YES;
+    [articleNavigationController setNavigationBarHidden:YES animated:NO];
+    [window setRootViewController:articleNavigationController];
     [window makeKeyAndVisible];
+    [self updateUserInterfaceStyleOfViewControllerForCurrentTheme:articleNavigationController];
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillEnterForegroundWithNotification:) name:UIApplicationWillEnterForegroundNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appDidBecomeActiveWithNotification:) name:UIApplicationDidBecomeActiveNotification object:nil];
@@ -631,174 +765,91 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
     [self startMigrationBackgroundTask:^{
         migrationsAllowed = NO;
     }];
-    dispatch_block_t bail = ^{
-        [self endMigrationBackgroundTask];
-        self.migrationActive = NO;
-    };
+
+//    TODO: pass the cancellationChecker into performLibraryUpdates to allow it to bail early if the background task is ended
+//    dispatch_block_t bail = ^{
+//        [self endMigrationBackgroundTask];
+//        self.migrationActive = NO;
+//    };
+//    BOOL (^cancellationChecker)() = ^BOOL() {
+//        return migrationsAllowed;
+//    };
+
     self.migrationActive = YES;
-    [self migrateToSharedContainerIfNecessaryWithCompletion:^{
-        if (!migrationsAllowed) {
-            bail();
-            return;
-        }
-        [self migrateToNewFeedIfNecessaryWithCompletion:^{
-            if (!migrationsAllowed) {
-                bail();
-                return;
-            }
-            [self.dataStore performCoreDataMigrations:^{
-                if (!migrationsAllowed) {
-                    bail();
-                    return;
-                }
-                [self migrateToQuadKeyLocationIfNecessaryWithCompletion:^{
-                    if (!migrationsAllowed) {
-                        bail();
-                        return;
-                    }
-                    [self migrateToRemoveUnreferencedArticlesIfNecessaryWithCompletion:^{
-                        if (!migrationsAllowed) {
-                            bail();
-                            return;
-                        }
-                        [self.dataStore performLibraryUpdates:^{
-                            dispatch_async(dispatch_get_main_queue(), ^{
-                                [self endMigrationBackgroundTask];
-                                [self checkRemoteAppConfigIfNecessary];
-                                [self presentOnboardingIfNeededWithCompletion:^(BOOL didShowOnboarding) {
-                                    [self setupControllers];
-                                    [self loadMainUI];
-                                    self.migrationComplete = YES;
-                                    self.migrationActive = NO;
-                                    [[SessionsFunnel shared] logSessionStart];
-                                    [[UserHistoryFunnel shared] logStartingSnapshot];
-                                    if (!self.isWaitingToResumeApp) {
-                                        [self resumeApp:^{
-                                            [self hideSplashViewAnimated:!didShowOnboarding];
-                                        }];
-                                    }
-                                }];
-                            });
-                        }];
-                    }];
-                }];
-            }];
-        }];
-    }];
-}
 
-- (void)migrateToSharedContainerIfNecessaryWithCompletion:(nonnull dispatch_block_t)completion {
-    if (![[NSUserDefaults wmf] wmf_didMigrateToSharedContainer]) {
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), ^{
-            NSError *error = nil;
-            if (![MWKDataStore migrateToSharedContainer:&error]) {
-                DDLogError(@"Error migrating data store: %@", error);
+    [self.dataStore performLibraryUpdates:^{
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.migrationComplete = YES;
+            self.migrationActive = NO;
+            [self endMigrationBackgroundTask];
+            [self checkRemoteAppConfigIfNecessary];
+            [self setupControllers];
+            if (!self.isWaitingToResumeApp) {
+                [self resumeApp:NULL];
             }
-            error = nil;
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [[NSUserDefaults wmf] wmf_setDidMigrateToSharedContainer:YES];
-                completion();
-            });
         });
-    } else {
-        completion();
-    }
-}
-
-- (void)migrateToNewFeedIfNecessaryWithCompletion:(nonnull dispatch_block_t)completion {
-    if ([[NSUserDefaults wmf] wmf_didMigrateToNewFeed]) {
-        completion();
-    } else {
-        NSError *migrationError = nil;
-        [self.dataStore migrateToCoreData:&migrationError];
-        if (migrationError) {
-            DDLogError(@"Error migrating: %@", migrationError);
-        }
-        [[NSUserDefaults wmf] wmf_setDidMigrateToNewFeed:YES];
-        completion();
-    }
-}
-
-- (void)migrateToQuadKeyLocationIfNecessaryWithCompletion:(nonnull dispatch_block_t)completion {
-    [self.dataStore migrateToQuadKeyLocationIfNecessaryWithCompletion:^(NSError *_Nonnull error) {
-        if (error) {
-            DDLogError(@"Error during location migration: %@", error);
-        }
-        completion();
     }];
 }
 
-- (void)migrateToRemoveUnreferencedArticlesIfNecessaryWithCompletion:(nonnull dispatch_block_t)completion {
-    if ([[NSUserDefaults wmf] wmf_didMigrateToFixArticleCache]) {
-        completion();
-    } else {
-        [self.dataStore
-            removeUnreferencedArticlesFromDiskCacheWithFailure:^(NSError *_Nonnull error) {
-                DDLogError(@"Error during article migration: %@", error);
-                completion();
-            }
-            success:^{
-                [[NSUserDefaults wmf] wmf_setDidMigrateToFixArticleCache:YES];
-                completion();
-            }];
-    }
-}
 
 #pragma mark - Start/Pause/Resume App
 
 - (void)hideSplashScreenAndResumeApp {
     self.waitingToResumeApp = NO;
     if (self.isMigrationComplete) {
-        [self resumeApp:^{
-            [self hideSplashViewAnimated:true];
-        }];
+        [self resumeApp:NULL];
     }
 }
 
+// resumeApp: should be called once and only once for every launch from a fully terminated state.
+// It should only be called when the app is active and being shown to the user
 - (void)resumeApp:(dispatch_block_t)completion {
-    if (self.isPresentingOnboarding) {
-        if (completion) {
-            completion();
+    [self presentOnboardingIfNeededWithCompletion:^(BOOL didShowOnboarding) {
+        [self loadMainUI];
+        dispatch_block_t done = ^{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self finishResumingApp];
+                if (completion) {
+                    completion();
+                }
+            });
+        };
+
+        if (self.notificationUserInfoToShow) {
+            [self hideSplashViewAnimated:!didShowOnboarding];
+            [self showInTheNewsForNotificationInfo:self.notificationUserInfoToShow];
+            self.notificationUserInfoToShow = nil;
+            done();
+        } else if (self.unprocessedUserActivity) {
+            [self processUserActivity:self.unprocessedUserActivity
+                             animated:NO
+                           completion:^{
+                               [self hideSplashViewAnimated:!didShowOnboarding];
+                               done();
+                           }];
+        } else if (self.unprocessedShortcutItem) {
+            [self hideSplashViewAnimated:!didShowOnboarding];
+            [self processShortcutItem:self.unprocessedShortcutItem
+                           completion:^(BOOL didProcess) {
+                               done();
+                           }];
+        } else if (NSUserDefaults.standardUserDefaults.shouldRestoreNavigationStackOnResume) {
+            [self.navigationStateController restoreNavigationStateFor:self.navigationController
+                                                                   in:self.dataStore.viewContext
+                                                                 with:self.theme
+                                                           completion:^{
+                                                               [self hideSplashViewAnimated:!didShowOnboarding];
+                                                               done();
+                                                           }];
+        } else if ([self shouldShowExploreScreenOnLaunch]) {
+            [self hideSplashViewAnimated:!didShowOnboarding];
+            [self showExplore];
+            done();
+        } else {
+            [self hideSplashViewAnimated:!didShowOnboarding];
+            done();
         }
-        return;
-    }
-
-    if (![self uiIsLoaded]) {
-        if (completion) {
-            completion();
-        }
-        return;
-    }
-
-    dispatch_block_t done = ^{
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self finishResumingApp];
-            if (completion) {
-                completion();
-            }
-        });
-    };
-
-    if (self.notificationUserInfoToShow) {
-        [self showInTheNewsForNotificationInfo:self.notificationUserInfoToShow];
-        self.notificationUserInfoToShow = nil;
-        done();
-    } else if (self.unprocessedUserActivity) {
-        [self processUserActivity:self.unprocessedUserActivity animated:NO completion:done];
-    } else if (self.unprocessedShortcutItem) {
-        [self processShortcutItem:self.unprocessedShortcutItem
-                       completion:^(BOOL didProcess) {
-                           done();
-                       }];
-    } else if ([self shouldShowLastReadArticleOnLaunch]) {
-        [self showLastReadArticleAnimated:NO];
-        done();
-    } else if ([self shouldShowExploreScreenOnLaunch]) {
-        [self showExplore];
-        done();
-    } else {
-        done();
-    }
+    }];
 }
 
 - (void)finishResumingApp {
@@ -810,7 +861,7 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
             [self checkRemoteAppConfigIfNecessary];
             if (!self.reachabilityNotifier) {
                 @weakify(self);
-                self.reachabilityNotifier = [[WMFReachabilityNotifier alloc] initWithHost:WMFDefaultSiteDomain
+                self.reachabilityNotifier = [[WMFReachabilityNotifier alloc] initWithHost:WMFConfiguration.current.defaultSiteDomain
                                                                                  callback:^(BOOL isReachable, SCNetworkReachabilityFlags flags) {
                                                                                      @strongify(self);
                                                                                      @weakify(self);
@@ -824,21 +875,14 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
                                                                                      });
                                                                                  }];
             }
-            [self.periodicWorkerController start];
-            [self.savedArticlesFetcher start];
-            [self.reachabilityNotifier start];
             self.resumeComplete = YES;
-        }
-        failure:^(NSError *error) {
-            if ([error.domain isEqualToString:NSURLErrorDomain]) {
-                return;
-            }
-            [self wmf_showReloginFailedPanelIfNecessaryWithTheme:self.theme];
+            [self performTasksThatShouldOccurAfterBecomeActiveAndResume];
+            [self showLoggedOutPanelIfNeeded];
         }];
 
     [self.dataStore.feedContentController startContentSources];
 
-    NSUserDefaults *defaults = [NSUserDefaults wmf];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSDate *feedRefreshDate = [defaults wmf_feedRefreshDate];
     NSDate *now = [NSDate date];
 
@@ -848,8 +892,14 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
                                                 userInitiated:NO
                                                    completion:^{
                                                    }];
-    } else if (locationAuthorized != [defaults wmf_locationAuthorized]) {
-        [self.dataStore.feedContentController updateNearbyForce:NO completion:NULL];
+    } else {
+        if (locationAuthorized != [defaults wmf_locationAuthorized]) {
+            [self.dataStore.feedContentController updateContentSource:[WMFNearbyContentSource class] force:NO completion:NULL];
+        }
+        // TODO: If full navigation stack is not restored (so we're past the cutoff date), should we still force Continue reading card to appear?
+        if (!NSUserDefaults.standardUserDefaults.shouldRestoreNavigationStackOnResume) {
+            [self.dataStore.feedContentController updateContentSource:[WMFContinueReadingContentSource class] force:YES completion:NULL];
+        }
     }
 
     [defaults wmf_setLocationAuthorized:locationAuthorized];
@@ -907,8 +957,9 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
         return;
     }
 
-    [[NSUserDefaults wmf] wmf_setDidShowSyncDisabledPanel:NO];
+    [[NSUserDefaults standardUserDefaults] wmf_setDidShowSyncDisabledPanel:NO];
 
+    self.notificationsController.applicationActive = NO;
     [self.reachabilityNotifier stop];
     [self.periodicWorkerController stop];
     [self.savedArticlesFetcher stop];
@@ -932,32 +983,13 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 
     //TODO: implement completion block to cancel download task with the 2 tasks above
     NSError *housekeepingError = nil;
-    NSArray<NSURL *> *deletedArticleURLs = [self.houseKeeper performHouseKeepingOnManagedObjectContext:self.dataStore.viewContext error:&housekeepingError];
+    [self.houseKeeper performHouseKeepingOnManagedObjectContext:self.dataStore.viewContext navigationStateController:self.navigationStateController error:&housekeepingError];
     if (housekeepingError) {
         DDLogError(@"Error on cleanup: %@", housekeepingError);
+        housekeepingError = nil;
     }
-
-    if (deletedArticleURLs.count > 0) {
-        [self.dataStore removeArticlesWithURLsFromCache:deletedArticleURLs];
-    }
-
-    if (self.backgroundTaskGroup) {
-        return;
-    }
-
-    WMFTaskGroup *taskGroup = [WMFTaskGroup new];
-    self.backgroundTaskGroup = taskGroup;
-
-    [taskGroup enter];
-    [self.dataStore startCacheRemoval:^{
-        [taskGroup leave];
-    }];
-
-    [taskGroup waitInBackgroundWithCompletion:^{
-        WMFAssertMainThread(@"Completion assumed to be called on the main queue.");
-        self.backgroundTaskGroup = nil;
-        [self endHousekeepingBackgroundTask];
-    }];
+    
+    [self endHousekeepingBackgroundTask];
 }
 
 #pragma mark - Memory Warning
@@ -1017,7 +1049,7 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
     if ([item.type isEqualToString:WMFIconShortcutTypeSearch]) {
         if (self.visibleArticleViewController) {
             [self showSearchInCurrentNavigationController];
-        }else{
+        } else {
             [self switchToSearchAnimated:NO];
             [self.searchViewController makeSearchBarBecomeFirstResponder];
         }
@@ -1048,28 +1080,13 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
         case WMFUserActivityTypeSettings:
         case WMFUserActivityTypeAppearanceSettings:
         case WMFUserActivityTypeContent:
-        case WMFUserActivityTypeSpecialPage:
             return YES;
         case WMFUserActivityTypeSearchResults:
-            if ([activity wmf_searchTerm] != nil) {
-                return YES;
-            } else {
-                return NO;
-            }
-            break;
-        case WMFUserActivityTypeArticle: {
-            if (![activity wmf_articleURL]) {
-                return NO;
-            } else {
-                return YES;
-            }
-        } break;
-        case WMFUserActivityTypeGenericLink: {
-            return YES;
-        }
+            return [activity wmf_searchTerm] != nil;
+        case WMFUserActivityTypeLink:
+            return [activity wmf_linkURL] != nil;
         default:
             return NO;
-            break;
     }
 }
 
@@ -1094,18 +1111,20 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
         return YES;
     }
     self.unprocessedUserActivity = nil;
-    [self dismissPresentedViewControllers];
 
     WMFUserActivityType type = [activity wmf_type];
+
     switch (type) {
         case WMFUserActivityTypeExplore:
+            [self dismissPresentedViewControllers];
             [self setSelectedIndex:WMFAppTabTypeMain];
-            [[self navigationControllerForTab:WMFAppTabTypeMain] popToRootViewControllerAnimated:animated];
+            [self.navigationController popToRootViewControllerAnimated:animated];
             break;
         case WMFUserActivityTypePlaces: {
+            [self dismissPresentedViewControllers];
             [self setSelectedIndex:WMFAppTabTypePlaces];
-            [[self navigationControllerForTab:WMFAppTabTypePlaces] popToRootViewControllerAnimated:animated];
-            NSURL *articleURL = activity.wmf_articleURL;
+            [self.navigationController popToRootViewControllerAnimated:animated];
+            NSURL *articleURL = activity.wmf_linkURL;
             if (articleURL) {
                 // For "View on a map" action to succeed, view mode has to be set to map.
                 [[self placesViewController] updateViewModeToMap];
@@ -1113,8 +1132,9 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
             }
         } break;
         case WMFUserActivityTypeContent: {
+            [self dismissPresentedViewControllers];
             [self setSelectedIndex:WMFAppTabTypeMain];
-            UINavigationController *navController = [self navigationControllerForTab:WMFAppTabTypeMain];
+            UINavigationController *navController = self.navigationController;
             [navController popToRootViewControllerAnimated:animated];
             NSURL *url = [activity wmf_contentURL];
             WMFContentGroup *group = [self.dataStore.viewContext contentGroupForURL:url];
@@ -1141,90 +1161,99 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 
         } break;
         case WMFUserActivityTypeSavedPages:
+            [self dismissPresentedViewControllers];
             [self setSelectedIndex:WMFAppTabTypeSaved];
-            [[self navigationControllerForTab:WMFAppTabTypeSaved] popToRootViewControllerAnimated:animated];
+            [self.navigationController popToRootViewControllerAnimated:animated];
             break;
         case WMFUserActivityTypeHistory:
+            [self dismissPresentedViewControllers];
             [self setSelectedIndex:WMFAppTabTypeRecent];
-            [[self navigationControllerForTab:WMFAppTabTypeRecent] popToRootViewControllerAnimated:animated];
+            [self.navigationController popToRootViewControllerAnimated:animated];
             break;
         case WMFUserActivityTypeSearch:
             [self showSearchInCurrentNavigationController];
             break;
         case WMFUserActivityTypeSearchResults:
-            [self switchToSearchAnimated:YES];
-            [self.searchViewController setSearchTerm:[activity wmf_searchTerm]];
-            [self.searchViewController search];
+            [self dismissPresentedViewControllers];
+            [self.searchViewController searchAndMakeResultsVisibleForSearchTerm:[activity wmf_searchTerm] animated:animated];
+            [self switchToSearchAnimated:animated];
             break;
-        case WMFUserActivityTypeArticle: {
-            NSURL *URL = [activity wmf_articleURL];
-            if (!URL) {
-                done();
-                return NO;
-            }
-            [self showArticleForURL:URL animated:animated completion:done];
-            // don't call done block before this return, wait for completion ^
-            return YES;
-        } break;
         case WMFUserActivityTypeSettings:
+            [self dismissPresentedViewControllers];
             [self setSelectedIndex:WMFAppTabTypeMain];
-            [[self navigationControllerForTab:WMFAppTabTypeMain] popToRootViewControllerAnimated:NO];
+            [self.navigationController popToRootViewControllerAnimated:NO];
             [self showSettingsAnimated:animated];
             break;
         case WMFUserActivityTypeAppearanceSettings: {
+            [self dismissPresentedViewControllers];
             [self setSelectedIndex:WMFAppTabTypeMain];
-            [[self navigationControllerForTab:WMFAppTabTypeMain] popToRootViewControllerAnimated:NO];
+            [self.navigationController popToRootViewControllerAnimated:NO];
             WMFAppearanceSettingsViewController *appearanceSettingsVC = [[WMFAppearanceSettingsViewController alloc] init];
             [appearanceSettingsVC applyTheme:self.theme];
             [self showSettingsWithSubViewController:appearanceSettingsVC animated:animated];
         } break;
-        case WMFUserActivityTypeGenericLink:
-            [self wmf_openExternalUrl:[activity wmf_articleURL]];
-            break;
-        case WMFUserActivityTypeSpecialPage:
-            [self wmf_openExternalUrl:[activity wmf_contentURL]];
-            break;
-        default:
-            done();
-            return NO;
-            break;
+        default: {
+            NSURL *linkURL = [activity wmf_linkURL];
+            if (!linkURL) {
+                done();
+                return NO;
+            }
+            [NSUserActivity wmf_makeActivityActive:activity];
+            return [self.router routeURL:linkURL completion:done];
+        }
     }
     done();
+    [NSUserActivity wmf_makeActivityActive:activity];
     return YES;
 }
 
 #pragma mark - Utilities
 
-- (void)selectDefaultTabAndDismissPresentedViewControllers {
-    [self dismissPresentedViewControllers];
-    [self setSelectedIndex:WMFAppTabTypeMain];
-}
-
-- (WMFArticleViewController *)showArticleForURL:(NSURL *)articleURL animated:(BOOL)animated {
-    return [self showArticleForURL:articleURL
+- (WMFArticleViewController *)showArticleWithURL:(NSURL *)articleURL animated:(BOOL)animated {
+    return [self showArticleWithURL:articleURL
                           animated:animated
                         completion:^{
                         }];
 }
 
-- (WMFArticleViewController *)showArticleForURL:(NSURL *)articleURL animated:(BOOL)animated completion:(nonnull dispatch_block_t)completion {
+- (WMFArticleViewController *)showArticleWithURL:(NSURL *)articleURL animated:(BOOL)animated completion:(nonnull dispatch_block_t)completion {
     if (!articleURL.wmf_title) {
         completion();
         return nil;
     }
     WMFArticleViewController *visibleArticleViewController = self.visibleArticleViewController;
-    NSString *visibleKey = visibleArticleViewController.articleURL.wmf_articleDatabaseKey;
-    NSString *articleKey = articleURL.wmf_articleDatabaseKey;
+    NSString *visibleKey = visibleArticleViewController.articleURL.wmf_databaseKey;
+    NSString *articleKey = articleURL.wmf_databaseKey;
     if (visibleKey && articleKey && [visibleKey isEqualToString:articleKey]) {
+        if (articleURL.fragment) {
+            [visibleArticleViewController showAnchor:articleURL.fragment];
+        }
         completion();
         return visibleArticleViewController;
     }
-    [self selectDefaultTabAndDismissPresentedViewControllers];
-    return [self.exploreViewController wmf_pushArticleWithURL:articleURL dataStore:self.session.dataStore theme:self.theme restoreScrollPosition:YES animated:animated articleLoadCompletion:completion];
+
+    UINavigationController *nc = [self currentNavigationController];
+    if (!nc) {
+        completion();
+        return nil;
+    }
+
+    if (nc.presentedViewController) {
+        [nc dismissViewControllerAnimated:NO completion:NULL];
+    }
+
+    WMFArticleViewController *articleVC = [[WMFArticleViewController alloc] initWithArticleURL:articleURL dataStore:self.dataStore theme:self.theme fromNavStateRestoration: NO];
+    articleVC.loadCompletion = completion;
+    [nc pushViewController:articleVC animated:YES];
+    return articleVC;
+}
+
+- (void)swiftCompatibleShowArticleWithURL:(NSURL *)articleURL animated:(BOOL)animated completion:(nonnull dispatch_block_t)completion {
+    [self showArticleWithURL:articleURL animated:animated completion:completion];
 }
 
 - (BOOL)shouldShowExploreScreenOnLaunch {
-    NSDate *resignActiveDate = [[NSUserDefaults wmf] wmf_appResignActiveDate];
+    NSDate *resignActiveDate = [[NSUserDefaults standardUserDefaults] wmf_appResignActiveDate];
     if (!resignActiveDate) {
         return NO;
     }
@@ -1236,11 +1265,11 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
 }
 
 - (BOOL)mainViewControllerIsDisplayingContent {
-    return [self navigationControllerForTab:WMFAppTabTypeMain].viewControllers.count > 1;
+    return self.navigationController.viewControllers.count > 1;
 }
 
 - (WMFArticleViewController *)visibleArticleViewController {
-    UINavigationController *navVC = [self navigationControllerForTab:self.selectedIndex];
+    UINavigationController *navVC = self.navigationController;
     UIViewController *topVC = navVC.topViewController;
     if ([topVC isKindOfClass:[WMFArticleViewController class]]) {
         return (WMFArticleViewController *)topVC;
@@ -1248,25 +1277,31 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
     return nil;
 }
 
-- (UINavigationController *)navigationControllerForTab:(WMFAppTabType)tab {
-    return (UINavigationController *)[self viewControllers][tab];
-}
-
-- (UIViewController *)rootViewControllerForTab:(WMFAppTabType)tab {
-    return [[[self navigationControllerForTab:tab] viewControllers] firstObject];
+- (UIViewController *)viewControllerForTab:(WMFAppTabType)tab {
+    return self.viewControllers[tab];
 }
 
 #pragma mark - Accessors
 
-- (SavedArticlesFetcher *)savedArticlesFetcher {
+- (WMFSavedArticlesFetcher *)savedArticlesFetcher {
     if (![self uiIsLoaded]) {
         return nil;
     }
     if (!_savedArticlesFetcher) {
-        _savedArticlesFetcher = [[SavedArticlesFetcher alloc] initWithDataStore:[[SessionSingleton sharedInstance] dataStore]];
+        _savedArticlesFetcher = [[WMFSavedArticlesFetcher alloc] initWithDataStore:self.dataStore];
         [_savedArticlesFetcher addObserver:self forKeyPath:WMF_SAFE_KEYPATH(_savedArticlesFetcher, progress) options:NSKeyValueObservingOptionInitial | NSKeyValueObservingOptionNew | NSKeyValueObservingOptionOld context:&kvo_SavedArticlesFetcher_progress];
     }
     return _savedArticlesFetcher;
+}
+
+- (WMFMobileViewToMobileHTMLMigrationController *)mobileViewToMobileHTMLMigrationController {
+    if (![self uiIsLoaded]) {
+        return nil;
+    }
+    if (!_mobileViewToMobileHTMLMigrationController) {
+        _mobileViewToMobileHTMLMigrationController = [[WMFMobileViewToMobileHTMLMigrationController alloc] initWithDataStore:self.dataStore];
+    }
+    return _mobileViewToMobileHTMLMigrationController;
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
@@ -1285,18 +1320,27 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
     return controller;
 }
 
-- (SessionSingleton *)session {
-    return [SessionSingleton sharedInstance];
+- (MWKDataStore *)dataStore {
+    return MWKDataStore.shared;
 }
 
-- (MWKDataStore *)dataStore {
-    return self.session.dataStore;
+- (WMFNavigationStateController *)navigationStateController {
+    if (!_navigationStateController) {
+        _navigationStateController = [[WMFNavigationStateController alloc] initWithDataStore:self.dataStore];
+    }
+    return _navigationStateController;
 }
 
 - (ExploreViewController *)exploreViewController {
     if (!_exploreViewController) {
         _exploreViewController = [[ExploreViewController alloc] init];
         _exploreViewController.dataStore = self.dataStore;
+        _exploreViewController.tabBarItem.image = [UIImage imageNamed:@"tabbar-explore"];
+        _exploreViewController.title = [WMFCommonStrings exploreTabTitle];
+        [_exploreViewController applyTheme:self.theme];
+        UIBarButtonItem *settingsBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage imageNamed:@"settings"] style:UIBarButtonItemStylePlain target:self action:@selector(showSettings)];
+        settingsBarButtonItem.accessibilityLabel = [WMFCommonStrings settingsTitle];
+        _exploreViewController.navigationItem.rightBarButtonItem = settingsBarButtonItem;
     }
     return _exploreViewController;
 }
@@ -1306,6 +1350,8 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
         _searchViewController = [[SearchViewController alloc] init];
         [_searchViewController applyTheme:self.theme];
         _searchViewController.dataStore = self.dataStore;
+        _searchViewController.tabBarItem.image = [UIImage imageNamed:@"search"];
+        _searchViewController.title = [WMFCommonStrings searchTitle];
     }
     return _searchViewController;
 }
@@ -1315,6 +1361,8 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
         _savedViewController = [[UIStoryboard storyboardWithName:@"Saved" bundle:nil] instantiateInitialViewController];
         [_savedViewController applyTheme:self.theme];
         _savedViewController.dataStore = self.dataStore;
+        _savedViewController.tabBarItem.image = [UIImage imageNamed:@"tabbar-save"];
+        _savedViewController.title = [WMFCommonStrings savedTabTitle];
     }
     return _savedViewController;
 }
@@ -1324,6 +1372,8 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
         _recentArticlesViewController = [[WMFHistoryViewController alloc] init];
         [_recentArticlesViewController applyTheme:self.theme];
         _recentArticlesViewController.dataStore = self.dataStore;
+        _recentArticlesViewController.tabBarItem.image = [UIImage imageNamed:@"tabbar-recent"];
+        _recentArticlesViewController.title = [WMFCommonStrings historyTabTitle];
     }
     return _recentArticlesViewController;
 }
@@ -1333,6 +1383,8 @@ static const NSString *kvo_SavedArticlesFetcher_progress = @"kvo_SavedArticlesFe
         _placesViewController = [[UIStoryboard storyboardWithName:@"Places" bundle:nil] instantiateInitialViewController];
         _placesViewController.dataStore = self.dataStore;
         [_placesViewController applyTheme:self.theme];
+        _placesViewController.tabBarItem.image = [UIImage imageNamed:@"tabbar-nearby"];
+        _placesViewController.title = [WMFCommonStrings placesTabTitle];
     }
     return _placesViewController;
 }
@@ -1348,24 +1400,25 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
     }
 #endif
 
-    NSNumber *didShow = [[NSUserDefaults wmf] objectForKey:WMFDidShowOnboarding];
+    NSNumber *didShow = [[NSUserDefaults standardUserDefaults] objectForKey:WMFDidShowOnboarding];
     return !didShow.boolValue;
 }
 
 - (void)setDidShowOnboarding {
-    [[NSUserDefaults wmf] setObject:@YES forKey:WMFDidShowOnboarding];
+    [[NSUserDefaults standardUserDefaults] setObject:@YES forKey:WMFDidShowOnboarding];
 }
 
 - (void)presentOnboardingIfNeededWithCompletion:(void (^)(BOOL didShowOnboarding))completion {
     if ([self shouldShowOnboarding]) {
         WMFWelcomeInitialViewController *vc = [WMFWelcomeInitialViewController wmf_viewControllerFromWelcomeStoryboard];
-
+        [vc applyTheme:self.theme];
         vc.completionBlock = ^{
             [self setDidShowOnboarding];
             if (completion) {
                 completion(YES);
             }
         };
+        vc.modalPresentationStyle = UIModalPresentationOverFullScreen;
         [self presentViewController:vc animated:NO completion:NULL];
     } else {
         if (completion) {
@@ -1376,86 +1429,30 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
 
 #pragma mark - Splash
 
-- (UIImageView *)splashView {
-    if (!_splashView) {
-        _splashView = [[UIImageView alloc] init];
-        _splashView.contentMode = UIViewContentModeCenter;
-        if (UI_USER_INTERFACE_IDIOM() != UIUserInterfaceIdiomPad) {
-            [_splashView setImage:[UIImage imageNamed:@"splashscreen-background"]];
-        }
-        _splashView.backgroundColor = [UIColor whiteColor];
-        [self.view wmf_addSubviewWithConstraintsToEdges:_splashView];
-        UIImage *wordmark = [UIImage imageNamed:@"wikipedia-wordmark"];
-        UIImageView *wordmarkView = [[UIImageView alloc] initWithImage:wordmark];
-        wordmarkView.translatesAutoresizingMaskIntoConstraints = NO;
-        [_splashView addSubview:wordmarkView];
-        NSLayoutConstraint *centerXConstraint = [_splashView.centerXAnchor constraintEqualToAnchor:wordmarkView.centerXAnchor];
-        NSLayoutConstraint *centerYConstraint = [_splashView.centerYAnchor constraintEqualToAnchor:wordmarkView.centerYAnchor constant:12];
-        [_splashView addConstraints:@[centerXConstraint, centerYConstraint]];
-    }
-    return _splashView;
+- (void)showSplashView {
+    [(WMFThemeableNavigationController *)self.navigationController showSplashView];
 }
 
-- (void)showSplashView {
-    self.splashView.hidden = NO;
-    self.splashView.alpha = 1.0;
+- (void)showSplashViewIfNotShowing {
+    [(WMFThemeableNavigationController *)self.navigationController showSplashViewIfNotShowing];
 }
 
 - (void)hideSplashViewAnimated:(BOOL)animated {
-    NSTimeInterval duration = animated ? 0.3 : 0.0;
-    [UIView animateWithDuration:duration
-        animations:^{
-            self.splashView.alpha = 0.0;
-        }
-        completion:^(BOOL finished) {
-            self.splashView.hidden = YES;
-        }];
-}
-
-- (BOOL)isShowingSplashView {
-    return self.splashView.hidden == NO;
+    [(WMFThemeableNavigationController *)self.navigationController hideSplashViewAnimated:animated];
 }
 
 #pragma mark - Explore VC
 
 - (void)showExplore {
     [self setSelectedIndex:WMFAppTabTypeMain];
-    [[self navigationControllerForTab:WMFAppTabTypeMain] popToRootViewControllerAnimated:NO];
+    [self.navigationController popToRootViewControllerAnimated:NO];
 }
 
 #pragma mark - Last Read Article
 
-- (BOOL)shouldShowLastReadArticleOnLaunch {
-    NSURL *lastRead = [[NSUserDefaults wmf] wmf_openArticleURL];
-    if (!lastRead) {
-        return NO;
-    }
-
-#if WMF_TWEAKS_ENABLED
-    if (FBTweakValue(@"Last Open Article", @"General", @"Restore on Launch", YES)) {
-        return YES;
-    }
-
-    NSDate *resignActiveDate = [[NSUserDefaults wmf] wmf_appResignActiveDate];
-    if (!resignActiveDate) {
-        return NO;
-    }
-
-    if (fabs([resignActiveDate timeIntervalSinceNow]) < WMFTimeBeforeShowingExploreScreenOnLaunch) {
-        if (![self mainViewControllerIsDisplayingContent] && [self selectedIndex] == WMFAppTabTypeMain) {
-            return YES;
-        }
-    }
-
-    return NO;
-#else
-    return YES;
-#endif
-}
-
 - (void)showLastReadArticleAnimated:(BOOL)animated {
-    NSURL *lastRead = [[NSUserDefaults wmf] wmf_openArticleURL];
-    [self showArticleForURL:lastRead animated:animated];
+    NSURL *lastRead = [self.dataStore.viewContext wmf_openArticleURL];
+    [self showArticleWithURL:lastRead animated:animated];
 }
 
 #pragma mark - Show Search
@@ -1465,6 +1462,7 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
     if (self.selectedIndex != WMFAppTabTypeSearch) {
         [self setSelectedIndex:WMFAppTabTypeSearch];
     }
+    [self.navigationController popToRootViewControllerAnimated:animated];
 }
 
 #pragma mark - App Shortcuts
@@ -1474,21 +1472,15 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
         [self dismissViewControllerAnimated:NO completion:NULL];
     }
 
-    UINavigationController *exploreNavController = [self navigationControllerForTab:WMFAppTabTypeMain];
-    if (exploreNavController.presentedViewController) {
-        [exploreNavController dismissViewControllerAnimated:NO completion:NULL];
-    }
-
-    UINavigationController *placesNavigationController = [self navigationControllerForTab:WMFAppTabTypePlaces];
-    if (placesNavigationController.presentedViewController) {
-        [placesNavigationController dismissViewControllerAnimated:NO completion:NULL];
+    if (self.navigationController.presentedViewController) {
+        [self.navigationController dismissViewControllerAnimated:NO completion:NULL];
     }
 }
+
 - (void)showRandomArticleAnimated:(BOOL)animated {
     [self dismissPresentedViewControllers];
     [self setSelectedIndex:WMFAppTabTypeMain];
-    UINavigationController *exploreNavController = [self navigationControllerForTab:WMFAppTabTypeMain];
-
+    UINavigationController *exploreNavController = self.navigationController;
     WMFFirstRandomViewController *vc = [[WMFFirstRandomViewController alloc] initWithSiteURL:[self siteURL] dataStore:self.dataStore theme:self.theme];
     [vc applyTheme:self.theme];
     [exploreNavController pushViewController:vc animated:animated];
@@ -1496,12 +1488,8 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
 
 - (void)showNearbyAnimated:(BOOL)animated {
     [self dismissPresentedViewControllers];
-
     [self setSelectedIndex:WMFAppTabTypePlaces];
-    UINavigationController *placesNavigationController = [self navigationControllerForTab:WMFAppTabTypePlaces];
-
-    [placesNavigationController popToRootViewControllerAnimated:NO];
-
+    [self.navigationController popToRootViewControllerAnimated:NO];
     [[self placesViewController] showNearbyArticles];
 }
 
@@ -1515,16 +1503,23 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
     self.checkingRemoteConfig = YES;
     CFAbsoluteTime lastCheckTime = (CFAbsoluteTime)[[self.dataStore.viewContext wmf_numberValueForKey:WMFLastRemoteAppConfigCheckAbsoluteTimeKey] doubleValue];
     CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-    if (now - lastCheckTime >= WMFRemoteAppConfigCheckInterval) {
-        [self.dataStore updateLocalConfigurationFromRemoteConfigurationWithCompletion:^(NSError *error) {
-            if (!error) {
-                [self.dataStore.viewContext wmf_setValue:[NSNumber numberWithDouble:now] forKey:WMFLastRemoteAppConfigCheckAbsoluteTimeKey];
-            }
-            self.checkingRemoteConfig = NO;
-        }];
-    } else {
+    BOOL shouldCheckRemoteConfig = now - lastCheckTime >= WMFRemoteAppConfigCheckInterval || self.dataStore.remoteConfigsThatFailedUpdate != 0;
+    if (!shouldCheckRemoteConfig) {
         self.checkingRemoteConfig = NO;
+        return;
     }
+    self.dataStore.isLocalConfigUpdateAllowed = YES;
+    [self startRemoteConfigCheckBackgroundTask:^{
+        self.dataStore.isLocalConfigUpdateAllowed = NO;
+        [self endRemoteConfigCheckBackgroundTask];
+    }];
+    [self.dataStore updateLocalConfigurationFromRemoteConfigurationWithCompletion:^(NSError *error) {
+        if (!error && self.dataStore.isLocalConfigUpdateAllowed) {
+            [self.dataStore.viewContext wmf_setValue:[NSNumber numberWithDouble:now] forKey:WMFLastRemoteAppConfigCheckAbsoluteTimeKey];
+        }
+        self.checkingRemoteConfig = NO;
+        [self endRemoteConfigCheckBackgroundTask];
+    }];
 }
 
 #pragma mark - UITabBarControllerDelegate
@@ -1542,9 +1537,6 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
             } break;
         }
     }
-    if ([viewController isKindOfClass:[WMFArticleNavigationController class]]) {
-        [(WMFArticleNavigationController *)viewController popToRootViewControllerAnimated:NO];
-    }
     return YES;
 }
 
@@ -1555,11 +1547,11 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
     } else if ([viewController isKindOfClass:[WMFArticleViewController class]]) {
         WMFArticleViewController *vc = (WMFArticleViewController *)viewController;
         if (self.selectedIndex == WMFAppTabTypeMain) {
-            vc.titleButton.accessibilityLabel = WMFLocalizedStringWithDefaultValue(@"home-button-explore-accessibility-label", nil, nil, @"Wikipedia, return to Explore", @"Accessibility heading for articles shown within the explore tab, indicating that tapping it will take you back to explore. \"Explore\" is the same as {{msg-wikimedia|Wikipedia-ios-welcome-explore-title}}.");
+            vc.navigationItem.titleView.accessibilityLabel = WMFLocalizedStringWithDefaultValue(@"home-button-explore-accessibility-label", nil, nil, @"Wikipedia, return to Explore", @"Accessibility heading for articles shown within the explore tab, indicating that tapping it will take you back to explore. \"Explore\" is the same as {{msg-wikimedia|Wikipedia-ios-welcome-explore-title}}.");
         } else if (self.selectedIndex == WMFAppTabTypeSaved) {
-            vc.titleButton.accessibilityLabel = WMFLocalizedStringWithDefaultValue(@"home-button-saved-accessibility-label", nil, nil, @"Wikipedia, return to Saved", @"Accessibility heading for articles shown within the saved articles tab, indicating that tapping it will take you back to the list of saved articles. \"Saved\" is the same as {{msg-wikimedia|Wikipedia-ios-saved-title}}.");
+            vc.navigationItem.titleView.accessibilityLabel = WMFLocalizedStringWithDefaultValue(@"home-button-saved-accessibility-label", nil, nil, @"Wikipedia, return to Saved", @"Accessibility heading for articles shown within the saved articles tab, indicating that tapping it will take you back to the list of saved articles. \"Saved\" is the same as {{msg-wikimedia|Wikipedia-ios-saved-title}}.");
         } else if (self.selectedIndex == WMFAppTabTypeRecent) {
-            vc.titleButton.accessibilityLabel = WMFLocalizedStringWithDefaultValue(@"home-button-history-accessibility-label", nil, nil, @"Wikipedia, return to History", @"Accessibility heading for articles shown within the history articles tab, indicating that tapping it will take you back to the history list. \"History\" is the same as {{msg-wikimedia|Wikipedia-ios-history-title}}.");
+            vc.navigationItem.titleView.accessibilityLabel = WMFLocalizedStringWithDefaultValue(@"home-button-history-accessibility-label", nil, nil, @"Wikipedia, return to History", @"Accessibility heading for articles shown within the history articles tab, indicating that tapping it will take you back to the history list. \"History\" is the same as {{msg-wikimedia|Wikipedia-ios-history-title}}.");
         }
     }
 }
@@ -1569,22 +1561,10 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
       willShowViewController:(UIViewController *)viewController
                     animated:(BOOL)animated {
     navigationController.interactivePopGestureRecognizer.delegate = self;
-    [navigationController wmf_hideToolbarIfViewControllerHasNoToolbarItems:viewController];
-    if ([viewController conformsToProtocol:@protocol(WMFSearchButtonProviding)] && viewController.navigationItem.rightBarButtonItem == nil) {
-        WMFSearchButton *searchButton = [[WMFSearchButton alloc] initWithTarget:self action:@selector(showSearchInCurrentNavigationController)];
-        viewController.navigationItem.rightBarButtonItem = searchButton;
-        if ([viewController isKindOfClass:[ExploreViewController class]]) {
-            viewController.navigationItem.rightBarButtonItem.customView.alpha = 0;
-        }
-    }
     [self updateActiveTitleAccessibilityButton:viewController];
 }
 
 - (void)navigationController:(UINavigationController *)navigationController didShowViewController:(UIViewController *)viewController animated:(BOOL)animated {
-    if ([[navigationController viewControllers] count] == 1) {
-        [[NSUserDefaults wmf] wmf_setOpenArticleURL:nil];
-    }
-
     NSArray *viewControllers = navigationController.viewControllers;
     NSInteger count = viewControllers.count;
     NSMutableIndexSet *indiciesToRemove = [NSMutableIndexSet indexSet];
@@ -1615,67 +1595,14 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
 #pragma mark - UIGestureRecognizerDelegate
 
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
-    for (WMFAppTabType i = 0; i < WMFAppTabCount; i++) {
-        UINavigationController *navigationController = [self navigationControllerForTab:i];
-        if (navigationController.interactivePopGestureRecognizer == gestureRecognizer) {
-            return navigationController.viewControllers.count > 1;
-        }
+    if (self.navigationController.interactivePopGestureRecognizer == gestureRecognizer) {
+        return self.navigationController.viewControllers.count > 1;
     }
     return YES;
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
     return ![gestureRecognizer isMemberOfClass:[UIScreenEdgePanGestureRecognizer class]];
-}
-
-#pragma mark - Wikipedia Zero
-
-- (void)isZeroRatedChanged:(NSNotification *)note {
-    WMFZeroConfigurationManager *zeroConfigurationManager = [note object];
-    if (zeroConfigurationManager.isZeroRated) {
-        [self showFirstTimeZeroOnAlertIfNeeded:zeroConfigurationManager.zeroConfiguration];
-    } else {
-        [self showZeroOffAlert];
-    }
-}
-
-- (void)setZeroOnDialogShownOnce {
-    [[NSUserDefaults wmf] setBool:YES forKey:WMFZeroOnDialogShownOnce];
-}
-
-- (BOOL)zeroOnDialogShownOnce {
-    return [[NSUserDefaults wmf] boolForKey:WMFZeroOnDialogShownOnce];
-}
-
-- (void)showFirstTimeZeroOnAlertIfNeeded:(WMFZeroConfiguration *)zeroConfiguration {
-    if ([self zeroOnDialogShownOnce]) {
-        return;
-    }
-
-    [self setZeroOnDialogShownOnce];
-
-    NSString *title = zeroConfiguration.message ? zeroConfiguration.message : WMFLocalizedStringWithDefaultValue(@"zero-free-verbiage", nil, nil, @"Free Wikipedia access from your mobile operator (data charges waived)", @"Alert text for Wikipedia Zero free data access enabled");
-
-    UIAlertController *dialog = [UIAlertController alertControllerWithTitle:title message:WMFLocalizedStringWithDefaultValue(@"zero-learn-more", nil, nil, @"Data charges are waived for this Wikipedia app.", @"Alert text for learning more about Wikipedia Zero") preferredStyle:UIAlertControllerStyleAlert];
-
-    [dialog addAction:[UIAlertAction actionWithTitle:WMFLocalizedStringWithDefaultValue(@"zero-learn-more-no-thanks", nil, nil, @"Dismiss", @"Button text for declining to learn more about Wikipedia Zero.\n{{Identical|Dismiss}}") style:UIAlertActionStyleCancel handler:NULL]];
-
-    [dialog addAction:[UIAlertAction actionWithTitle:WMFLocalizedStringWithDefaultValue(@"zero-learn-more-learn-more", nil, nil, @"Read more", @"Button text for learn more about Wikipedia Zero.\n{{Identical|Read more}}")
-                                               style:UIAlertActionStyleDestructive
-                                             handler:^(UIAlertAction *_Nonnull action) {
-                                                 [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://foundation.m.wikimedia.org/wiki/Wikipedia_Zero_App_FAQ"] options:@{} completionHandler:NULL];
-                                             }]];
-
-    [[[[UIApplication sharedApplication] keyWindow] rootViewController] presentViewController:dialog animated:YES completion:NULL];
-}
-
-- (void)showZeroOffAlert {
-
-    UIAlertController *dialog = [UIAlertController alertControllerWithTitle:WMFLocalizedStringWithDefaultValue(@"zero-charged-verbiage", nil, nil, @"Wikipedia Zero is off", @"Alert text for Wikipedia Zero free data access disabled") message:WMFLocalizedStringWithDefaultValue(@"zero-charged-verbiage-extended", nil, nil, @"Loading other articles may incur data charges. Saved articles stored offline do not use data and are free.", @"Extended text describing that further usage of the app may in fact incur data charges because Wikipedia Zero is off, but Saved articles are still free.") preferredStyle:UIAlertControllerStyleAlert];
-
-    [dialog addAction:[UIAlertAction actionWithTitle:WMFLocalizedStringWithDefaultValue(@"zero-learn-more-no-thanks", nil, nil, @"Dismiss", @"Button text for declining to learn more about Wikipedia Zero.\n{{Identical|Dismiss}}") style:UIAlertActionStyleCancel handler:NULL]];
-
-    [[[[UIApplication sharedApplication] keyWindow] rootViewController] presentViewController:dialog animated:YES completion:NULL];
 }
 
 #pragma mark - UNUserNotificationCenterDelegate
@@ -1701,7 +1628,7 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
         NSString *articleURLString = info[WMFNotificationInfoArticleURLStringKey];
         NSURL *articleURL = [NSURL URLWithString:articleURLString];
         if ([actionIdentifier isEqualToString:WMFInTheNewsNotificationShareActionIdentifier]) {
-            WMFArticleViewController *articleVC = [self showArticleForURL:articleURL animated:NO];
+            WMFArticleViewController *articleVC = [self showArticleWithURL:articleURL animated:NO];
             [articleVC shareArticleWhenReady];
         } else if ([actionIdentifier isEqualToString:UNNotificationDefaultActionIdentifier]) {
             [self showInTheNewsForNotificationInfo:info];
@@ -1741,10 +1668,10 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
     WMFFeedNewsStory *feedNewsStory = [MTLJSONAdapter modelOfClass:[WMFFeedNewsStory class] fromJSONDictionary:JSONDictionary error:&JSONError];
     if (!feedNewsStory || JSONError) {
         DDLogError(@"Error parsing feed news story: %@", JSONError);
-        [self showArticleForURL:articleURL animated:NO];
+        [self showArticleWithURL:articleURL animated:NO];
         return;
     }
-    [self selectDefaultTabAndDismissPresentedViewControllers];
+    [self dismissPresentedViewControllers];
 
     if (!feedNewsStory) {
         return;
@@ -1755,10 +1682,8 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
         return;
     }
 
-    [self setSelectedIndex:WMFAppTabTypeMain];
-    UINavigationController *navController = [self navigationControllerForTab:WMFAppTabTypeMain];
-    [navController popToRootViewControllerAnimated:NO];
-    [navController pushViewController:vc animated:NO];
+    [self.navigationController popToRootViewControllerAnimated:NO];
+    [self.navigationController pushViewController:vc animated:NO];
 }
 
 #pragma mark - Themeable
@@ -1767,7 +1692,7 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
     NSMutableSet<UINavigationController *> *foundNavigationControllers = [NSMutableSet setWithCapacity:1];
     for (UINavigationController *nc in navigationControllers) {
         for (UIViewController *vc in nc.viewControllers) {
-            if ([vc conformsToProtocol:@protocol(WMFThemeable)]) {
+            if (vc != self && [vc conformsToProtocol:@protocol(WMFThemeable)]) {
                 [(id<WMFThemeable>)vc applyTheme:theme];
             }
             if ([vc.presentedViewController isKindOfClass:[UINavigationController class]]) {
@@ -1793,11 +1718,33 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
 
 - (NSArray<UINavigationController *> *)allNavigationControllers {
     // Navigation controllers
-    NSMutableArray<UINavigationController *> *navigationControllers = [NSMutableArray arrayWithObjects:[self navigationControllerForTab:WMFAppTabTypeMain], [self navigationControllerForTab:WMFAppTabTypePlaces], [self navigationControllerForTab:WMFAppTabTypeSaved], [self navigationControllerForTab:WMFAppTabTypeRecent], [self navigationControllerForTab:WMFAppTabTypeSearch], nil];
-    if (self.settingsNavigationController) {
-        [navigationControllers addObject:self.settingsNavigationController];
+    NSMutableArray<UINavigationController *> *navigationControllers = [NSMutableArray array];
+    UINavigationController *navC = self.navigationController;
+    if (navC) {
+        [navigationControllers addObject:navC];
+    }
+    if (_settingsNavigationController) {
+        [navigationControllers addObject:_settingsNavigationController];
     }
     return navigationControllers;
+}
+
+- (void)applyTheme:(WMFTheme *)theme toPresentedViewController:(UIViewController *)viewController {
+
+    if (viewController == nil) {
+        return;
+    }
+
+    if ([viewController conformsToProtocol:@protocol(WMFThemeable)]) {
+        [(id<WMFThemeable>)viewController applyTheme:theme];
+    }
+
+    if ([viewController.presentedViewController isKindOfClass:[UINavigationController class]]) {
+        UINavigationController *navController = (UINavigationController *)viewController.presentedViewController;
+        [self applyTheme:theme toNavigationControllers:@[navController]];
+    } else {
+        [self applyTheme:theme toPresentedViewController:viewController.presentedViewController];
+    }
 }
 
 - (void)applyTheme:(WMFTheme *)theme {
@@ -1809,8 +1756,14 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
     self.view.backgroundColor = theme.colors.baseBackground;
     self.view.tintColor = theme.colors.link;
 
-    [self.searchViewController applyTheme:theme];
     [self.settingsViewController applyTheme:theme];
+    [self.exploreViewController applyTheme:theme];
+    [self.placesViewController applyTheme:theme];
+    [self.savedViewController applyTheme:theme];
+    [self.recentArticlesViewController applyTheme:theme];
+    [self.searchViewController applyTheme:theme];
+
+    [self applyTheme:theme toPresentedViewController:self.presentedViewController];
 
     [[WMFAlertManager sharedInstance] applyTheme:theme];
 
@@ -1834,23 +1787,80 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
 
     [[UISwitch appearance] setOnTintColor:theme.colors.accent];
 
+    [self.readingListHintController applyTheme:self.theme];
+    [self.editHintController applyTheme:self.theme];
+
     [self setNeedsStatusBarAppearanceUpdate];
 }
 
-- (void)changeTheme:(NSNotification *)note {
-    WMFTheme *theme = (WMFTheme *)note.userInfo[WMFReadingThemesControlsViewController.WMFUserDidSelectThemeNotificationThemeKey];
-
+- (void)updateAppThemeIfNecessary {
+    // self.navigationController is the App's root view controller so rely on its trait collection
+    WMFTheme *theme = [NSUserDefaults.standardUserDefaults themeCompatibleWith:self.navigationController.traitCollection];
     if (self.theme != theme) {
         [self applyTheme:theme];
-        [[NSUserDefaults wmf] wmf_setAppTheme:theme];
         [self.settingsViewController loadSections];
     }
+}
+
+- (void)userDidChangeTheme:(NSNotification *)note {
+    NSString *themeName = (NSString *)note.userInfo[WMFReadingThemesControlsViewController.WMFUserDidSelectThemeNotificationThemeNameKey];
+    NSNumber *isImageDimmingEnabledNumber = (NSNumber *)note.userInfo[WMFReadingThemesControlsViewController.WMFUserDidSelectThemeNotificationIsImageDimmingEnabledKey];
+    if (isImageDimmingEnabledNumber) {
+        [NSUserDefaults.standardUserDefaults setWmf_isImageDimmingEnabled:isImageDimmingEnabledNumber.boolValue];
+    }
+    [NSUserDefaults.standardUserDefaults setThemeName:themeName];
+    [self updateUserInterfaceStyleOfViewControllerForCurrentTheme:self.navigationController];
+    [self updateAppThemeIfNecessary];
+}
+
+- (void)updateUserInterfaceStyleOfViewControllerForCurrentTheme:(UIViewController *)viewController {
+    if (@available(iOS 13.0, *)) {
+        NSString *themeName = [NSUserDefaults.standardUserDefaults themeName];
+        if ([WMFTheme isDefaultThemeName:themeName]) {
+            viewController.overrideUserInterfaceStyle = UIUserInterfaceStyleUnspecified;
+        } else if ([WMFTheme isDarkThemeName:themeName]) {
+            viewController.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+        } else {
+            viewController.overrideUserInterfaceStyle = UIUserInterfaceStyleLight;
+        }
+    }
+}
+
+- (void)debounceTraitCollectionThemeUpdate {
+    if (@available(iOS 13.0, *)) {
+        [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(updateAppThemeIfNecessary) object:nil];
+        [self performSelector:@selector(updateAppThemeIfNecessary) withObject:nil afterDelay:0.3];
+    }
+}
+
+- (void)themeableNavigationControllerTraitCollectionDidChange:(nonnull WMFThemeableNavigationController *)navigationController {
+    [self debounceTraitCollectionThemeUpdate];
+}
+
+#pragma mark - WMFWorkerControllerDelegate
+
+- (void)workerControllerWillStart:(WMFWorkerController *)workerController workWithIdentifier:(NSString *)identifier {
+    NSString *name = [@[NSStringFromClass([workerController class]), identifier] componentsJoinedByString:@"-"];
+    UIBackgroundTaskIdentifier backgroundTaskIdentifier = [UIApplication.sharedApplication beginBackgroundTaskWithName:name
+                                                                                                     expirationHandler:^{
+                                                                                                         DDLogWarn(@"Ending background task with name: %@", name);
+                                                                                                         [workerController cancelWorkWithIdentifier:identifier];
+                                                                                                     }];
+    [self setBackgroundTaskIdentifier:backgroundTaskIdentifier forKey:identifier];
+}
+
+- (void)workerControllerDidEnd:(WMFWorkerController *)workerController workWithIdentifier:(NSString *)identifier {
+    UIBackgroundTaskIdentifier backgroundTaskIdentifier = [self backgroundTaskIdentifierForKey:identifier];
+    if (backgroundTaskIdentifier == UIBackgroundTaskInvalid) {
+        return;
+    }
+    [UIApplication.sharedApplication endBackgroundTask:backgroundTaskIdentifier];
 }
 
 #pragma mark - Article save to disk did fail
 
 - (void)articleSaveToDiskDidFail:(NSNotification *)note {
-    NSError *error = (NSError *)note.userInfo[WMFArticleSaveToDiskDidFailErrorKey];
+    NSError *error = (NSError *)note.userInfo[[WMFSavedArticlesFetcher saveToDiskDidFailErrorKey]];
     if (error.domain == NSCocoaErrorDomain && error.code == NSFileWriteOutOfSpaceError) {
         [[WMFAlertManager sharedInstance] showErrorAlertWithMessage:WMFLocalizedStringWithDefaultValue(@"article-save-error-not-enough-space", nil, nil, @"You do not have enough space on your device to save this article", @"Alert message informing user that article cannot be save due to insufficient storage available")
                                                              sticky:YES
@@ -1863,7 +1873,7 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
 
 - (void)articleFontSizeWasUpdated:(NSNotification *)note {
     NSNumber *multiplier = (NSNumber *)note.userInfo[WMFFontSizeSliderViewController.WMFArticleFontSizeMultiplierKey];
-    [[NSUserDefaults wmf] wmf_setArticleFontSizeMultiplier:multiplier];
+    [[NSUserDefaults standardUserDefaults] wmf_setArticleFontSizeMultiplier:multiplier];
 }
 
 #pragma mark - Search
@@ -1882,17 +1892,28 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
     }
 }
 
+- (nullable UINavigationController *)currentNavigationController {
+    UIViewController *presented = self.presentedViewController;
+    while (presented.presentedViewController != nil) {
+        presented = presented.presentedViewController;
+    }
+    if ([presented isKindOfClass:[UINavigationController class]]) {
+        return (UINavigationController *)presented;
+    } else {
+        return self.navigationController;
+    }
+}
+
 - (void)showSearchInCurrentNavigationControllerAnimated:(BOOL)animated {
     NSParameterAssert(self.dataStore);
 
     [self dismissReadingThemesPopoverIfActive];
 
-    id vc = [self selectedViewController];
-    if (![vc isKindOfClass:[UINavigationController class]]) {
+    UINavigationController *nc = self.currentNavigationController;
+    if (!nc) {
         return;
     }
 
-    UINavigationController *nc = (UINavigationController *)vc;
     NSArray *vcs = nc.viewControllers;
     NSMutableArray *mutableVCs = [vcs mutableCopy];
     SearchViewController *searchVC = nil;
@@ -1919,7 +1940,7 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
         searchVC.dataStore = self.dataStore;
     }
 
-    [vc pushViewController:searchVC animated:true];
+    [nc pushViewController:searchVC animated:true];
 }
 
 - (nonnull WMFSettingsViewController *)settingsViewController {
@@ -1928,6 +1949,7 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
             [WMFSettingsViewController settingsViewControllerWithDataStore:self.dataStore];
         [settingsVC applyTheme:self.theme];
         _settingsViewController = settingsVC;
+        _settingsViewController.tabBarItem.image = [UIImage imageNamed:@"tabbar-explore"];
     }
     return _settingsViewController;
 }
@@ -1937,9 +1959,10 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
         WMFThemeableNavigationController *navController = [[WMFThemeableNavigationController alloc] initWithRootViewController:self.settingsViewController theme:self.theme];
         [self applyTheme:self.theme toNavigationControllers:@[navController]];
         _settingsNavigationController = navController;
+        _settingsNavigationController.modalPresentationStyle = UIModalPresentationOverFullScreen;
     }
 
-    if (_settingsNavigationController.viewControllers.count == 0) {
+    if (_settingsNavigationController.viewControllers.firstObject != self.settingsViewController) {
         _settingsNavigationController.viewControllers = @[self.settingsViewController];
     }
 
@@ -1954,7 +1977,17 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
         [self.settingsNavigationController pushViewController:subViewController animated:NO];
     }
 
-    [self presentViewController:self.settingsNavigationController animated:animated completion:nil];
+    switch ([NSUserDefaults standardUserDefaults].defaultTabType) {
+        case WMFAppDefaultTabTypeSettings:
+            [self setSelectedIndex:WMFAppTabTypeMain];
+            if (subViewController) {
+                [self wmf_pushViewController:subViewController animated:animated];
+            }
+            break;
+        default:
+            [self presentViewController:self.settingsNavigationController animated:animated completion:nil];
+            break;
+    }
 }
 
 - (void)showSettingsAnimated:(BOOL)animated {
@@ -2024,7 +2057,27 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
 }
 
 - (void)readMoreAboutRevertedEditViewControllerDidPressGoToArticleButton:(nonnull NSURL *)articleURL {
-    [self showArticleForURL:articleURL animated:YES];
+    [self showArticleWithURL:articleURL animated:YES];
+}
+
+#pragma mark - User was logged out
+
+- (void)userWasLoggedOut:(NSNotification *)note {
+    [self showLoggedOutPanelIfNeeded];
+}
+
+- (void)showLoggedOutPanelIfNeeded {
+    WMFAuthenticationManager *authenticationManager = WMFAuthenticationManager.sharedInstance;
+    BOOL isUserUnawareOfLogout = authenticationManager.isUserUnawareOfLogout;
+    if (!isUserUnawareOfLogout) {
+        return;
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self wmf_showLoggedOutPanelWithTheme:self.theme
+                               dismissHandler:^{
+                                   [authenticationManager userDidAcknowledgeUnintentionalLogout];
+                               }];
+    });
 }
 
 #pragma mark - Perma Random Mode
@@ -2037,14 +2090,14 @@ static NSString *const WMFDidShowOnboarding = @"DidShowOnboarding5.3";
     if (event.subtype != UIEventSubtypeMotionShake) {
         return;
     }
-    UINavigationController *navController = [self navigationControllerForTab:WMFAppTabTypeMain];
+    UINavigationController *navController = self.navigationController;
     if ([navController.visibleViewController isKindOfClass:[WMFRandomArticleViewController class]] || [navController.visibleViewController isKindOfClass:[WMFFirstRandomViewController class]]) {
         [UIApplication sharedApplication].idleTimerDisabled = NO;
         return;
     }
 
     [self setSelectedIndex:WMFAppTabTypeMain];
-    UINavigationController *exploreNavController = [self navigationControllerForTab:WMFAppTabTypeMain];
+    UINavigationController *exploreNavController = self.navigationController;
 
     [self dismissPresentedViewControllers];
 

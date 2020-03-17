@@ -15,17 +15,6 @@
                                  }];
 }
 
-- (void)getScreenRectForHtmlImageWithSrc:(NSString *)src completion:(void (^)(CGRect rect))completion {
-    [self getScreenRectForHtmlElementFromJavascriptString:[NSString stringWithFormat:@"window.wmf.elementLocation.getElementRect(window.wmf.elementLocation.getImageWithSrc('%@'));", [src wmf_stringBySanitizingForJavaScript]]
-                                               completion:completion];
-}
-
-- (void)getScrollViewRectForHtmlImageWithSrc:(NSString *)src completion:(void (^)(CGRect rect))completion {
-    [self getScreenRectForHtmlImageWithSrc:src
-                                completion:^(CGRect rect) {
-                                    completion([self getRectRelativeToScrollView:rect]);
-                                }];
-}
 
 - (CGRect)getRectRelativeToScrollView:(CGRect)rect {
     rect.origin =
@@ -51,13 +40,6 @@
                    }
                }
                completion(CGRectNull);
-           }];
-}
-
-- (void)getIndexOfTopOnScreenElementWithPrefix:(NSString *)prefix count:(NSUInteger)count completion:(void (^)(id index, NSError *error))completion {
-    [self evaluateJavaScript:[NSString stringWithFormat:@"window.wmf.elementLocation.getIndexOfFirstOnScreenElement('%@', %lu)", [prefix wmf_stringBySanitizingForJavaScript], (unsigned long)count]
-           completionHandler:^(id _Nullable index, NSError *_Nullable error) {
-               completion(index, error);
            }];
 }
 

@@ -1,23 +1,24 @@
 import WMF;
 
-class OnThisDayViewController: ColumnarCollectionViewController, ReadingListHintPresenter {
+class OnThisDayViewController: ColumnarCollectionViewController, DetailPresentingFromContentGroup {
     fileprivate static let cellReuseIdentifier = "OnThisDayCollectionViewCell"
     fileprivate static let headerReuseIdentifier = "OnThisDayViewControllerHeader"
     fileprivate static let blankHeaderReuseIdentifier = "OnThisDayViewControllerBlankHeader"
-    var readingListHintController: ReadingListHintController?
-    
+
     let events: [WMFFeedOnThisDayEvent]
     let dataStore: MWKDataStore
     let midnightUTCDate: Date
     var initialEvent: WMFFeedOnThisDayEvent?
     let feedFunnelContext: FeedFunnelContext
-    
+    let contentGroupIDURIString: String?
+
     required public init(events: [WMFFeedOnThisDayEvent], dataStore: MWKDataStore, midnightUTCDate: Date, contentGroup: WMFContentGroup, theme: Theme) {
         self.events = events
         self.dataStore = dataStore
         self.midnightUTCDate = midnightUTCDate
         self.isDateVisibleInTitle = false
         feedFunnelContext = FeedFunnelContext(contentGroup)
+        self.contentGroupIDURIString = contentGroup.objectID.uriRepresentation().absoluteString
         super.init()
         self.theme = theme
         title = CommonStrings.onThisDayTitle
@@ -29,7 +30,7 @@ class OnThisDayViewController: ColumnarCollectionViewController, ReadingListHint
             // Work-around for: https://phabricator.wikimedia.org/T169277
             // Presently the event looks to its first article preview when you ask it for the language, so if the event has no previews, no lang!
             let firstEventWithArticlePreviews = events.first(where: {
-                guard let previews = $0.articlePreviews, previews.count > 0 else {
+                guard let previews = $0.articlePreviews, !previews.isEmpty else {
                     return false
                 }
                 return true
@@ -56,7 +57,6 @@ class OnThisDayViewController: ColumnarCollectionViewController, ReadingListHint
         layoutManager.register(OnThisDayCollectionViewCell.self, forCellWithReuseIdentifier: OnThisDayViewController.cellReuseIdentifier, addPlaceholder: true)
         layoutManager.register(UINib(nibName: OnThisDayViewController.headerReuseIdentifier, bundle: nil), forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: OnThisDayViewController.headerReuseIdentifier, addPlaceholder: false)
         layoutManager.register(OnThisDayViewControllerBlankHeader.self, forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader, withReuseIdentifier: OnThisDayViewController.blankHeaderReuseIdentifier, addPlaceholder: false)
-        readingListHintController = ReadingListHintController(dataStore: dataStore, presenter: self)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -65,7 +65,7 @@ class OnThisDayViewController: ColumnarCollectionViewController, ReadingListHint
     }
     
     func scrollToInitialEvent() {
-        guard let event = initialEvent, let eventIndex = events.index(of: event), events.indices.contains(eventIndex) else {
+        guard let event = initialEvent, let eventIndex = events.firstIndex(of: event), events.indices.contains(eventIndex) else {
             return
         }
         let sectionIndex = eventIndex + 1 // index + 1 because section 0 is the header
@@ -137,8 +137,10 @@ class OnThisDayViewController: ColumnarCollectionViewController, ReadingListHint
 
         previewingContext.sourceRect = view.convert(subItemView.bounds, from: subItemView)
         let article = previews[index]
-        let vc = WMFArticleViewController(articleURL: article.articleURL, dataStore: dataStore, theme: theme)
-        vc.articlePreviewingActionsDelegate = self
+        guard let vc = ArticleViewController(articleURL: article.articleURL, dataStore: dataStore, theme: theme) else {
+            return nil
+        }
+        vc.articlePreviewingDelegate = self
         vc.wmf_addPeekableChildViewController(for: article.articleURL, dataStore: dataStore, theme: theme)
         if let themeable = vc as Themeable? {
             themeable.apply(theme: self.theme)
@@ -150,7 +152,7 @@ class OnThisDayViewController: ColumnarCollectionViewController, ReadingListHint
     override func previewingContext(_ previewingContext: UIViewControllerPreviewing, commit viewControllerToCommit: UIViewController) {
         viewControllerToCommit.wmf_removePeekableChildViewControllers()
         FeedFunnel.shared.logArticleInFeedDetailReadingStarted(for: feedFunnelContext, index: previewedIndex, maxViewed: maxViewed)
-        wmf_push(viewControllerToCommit, animated: true)
+        push(viewControllerToCommit, animated: true)
     }
 
     // MARK: - CollectionViewFooterDelegate
@@ -158,7 +160,18 @@ class OnThisDayViewController: ColumnarCollectionViewController, ReadingListHint
     override func collectionViewFooterButtonWasPressed(_ collectionViewFooter: CollectionViewFooter) {
         navigationController?.popViewController(animated: true)
     }
+    
+    // MARK: ArticlePreviewingDelegate
+    
+    override func shareArticlePreviewActionSelected(with articleController: ArticleViewController, shareActivityController: UIActivityViewController) {
+        FeedFunnel.shared.logFeedDetailShareTapped(for: feedFunnelContext, index: previewedIndex)
+        super.shareArticlePreviewActionSelected(with: articleController, shareActivityController: shareActivityController)
+    }
 
+    override func readMoreArticlePreviewActionSelected(with articleController: ArticleViewController) {
+        articleController.wmf_removePeekableChildViewControllers()
+        push(articleController, context: feedFunnelContext, index: previewedIndex, animated: true)
+    }
 }
 
 class OnThisDayViewControllerBlankHeader: UICollectionReusableView {
@@ -216,7 +229,7 @@ extension OnThisDayViewController {
         return header
     }
     
-    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+    @objc func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
         guard let cell = cell as? OnThisDayCollectionViewCell else {
             return
         }
@@ -224,7 +237,7 @@ extension OnThisDayViewController {
         cell.pauseDotsAnimation = false
     }
     
-    func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
+    @objc func collectionView(_ collectionView: UICollectionView, didEndDisplaying cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
         guard let cell = cell as? OnThisDayCollectionViewCell else {
             return
         }
@@ -232,25 +245,25 @@ extension OnThisDayViewController {
         cell.pauseDotsAnimation = true
     }
     
-    func collectionView(_ collectionView: UICollectionView, willDisplaySupplementaryView view: UICollectionReusableView, forElementKind elementKind: String, at indexPath: IndexPath) {
+    @objc func collectionView(_ collectionView: UICollectionView, willDisplaySupplementaryView view: UICollectionReusableView, forElementKind elementKind: String, at indexPath: IndexPath) {
         guard indexPath.section == 0, elementKind == UICollectionView.elementKindSectionHeader else {
             return
         }
         isDateVisibleInTitle = false
     }
     
-    func collectionView(_ collectionView: UICollectionView, didEndDisplayingSupplementaryView view: UICollectionReusableView, forElementOfKind elementKind: String, at indexPath: IndexPath) {
+    @objc func collectionView(_ collectionView: UICollectionView, didEndDisplayingSupplementaryView view: UICollectionReusableView, forElementOfKind elementKind: String, at indexPath: IndexPath) {
         guard indexPath.section == 0, elementKind == UICollectionView.elementKindSectionHeader else {
             return
         }
         isDateVisibleInTitle = true
     }
     
-    func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
+    @objc func collectionView(_ collectionView: UICollectionView, shouldHighlightItemAt indexPath: IndexPath) -> Bool {
         return false
     }
     
-    func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+    @objc func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         return false
     }
 }
@@ -267,7 +280,7 @@ extension OnThisDayViewController: SideScrollingCollectionViewCellDelegate {
             index = nil
         }
         FeedFunnel.shared.logArticleInFeedDetailReadingStarted(for: feedFunnelContext, index: index, maxViewed: maxViewed)
-        wmf_pushArticle(with: articleURL, dataStore: dataStore, theme: self.theme, animated: true)
+        navigate(to: articleURL)
     }
 }
 
@@ -279,18 +292,5 @@ extension OnThisDayViewController: EventLoggingEventValuesProviding {
     
     var eventLoggingLabel: EventLoggingLabel? {
         return .onThisDay
-    }
-}
-
-// MARK: - WMFArticlePreviewingActionsDelegate
-extension OnThisDayViewController {
-    override func shareArticlePreviewActionSelected(withArticleController articleController: WMFArticleViewController, shareActivityController: UIActivityViewController) {
-        FeedFunnel.shared.logFeedDetailShareTapped(for: feedFunnelContext, index: previewedIndex)
-        super.shareArticlePreviewActionSelected(withArticleController: articleController, shareActivityController: shareActivityController)
-    }
-
-    override func readMoreArticlePreviewActionSelected(withArticleController articleController: WMFArticleViewController) {
-        articleController.wmf_removePeekableChildViewControllers()
-        wmf_push(articleController, context: feedFunnelContext, index: previewedIndex, animated: true)
     }
 }

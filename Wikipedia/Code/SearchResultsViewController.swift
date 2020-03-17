@@ -9,7 +9,9 @@ class SearchResultsViewController: ArticleCollectionViewController {
             reload()
         }
     }
-    
+
+    var delegatesSelection: Bool = false
+
     override func viewDidLoad() {
         super.viewDidLoad()
         useNavigationBarVisibleHeightForScrollViewInsets = true
@@ -18,6 +20,7 @@ class SearchResultsViewController: ArticleCollectionViewController {
     
     func reload() {
         collectionView.reloadData()
+        updateEmptyState()
     }
     
     var searchSiteURL: URL? = nil
@@ -26,7 +29,7 @@ class SearchResultsViewController: ArticleCollectionViewController {
         guard let searchResults = resultsInfo, let searchSiteURL = searchSiteURL else {
             return false
         }
-        return results.count > 0 && (searchSiteURL as NSURL).wmf_isEqual(toIgnoringScheme: siteURL) && searchResults.searchTerm == searchTerm
+        return !results.isEmpty && (searchSiteURL as NSURL).wmf_isEqual(toIgnoringScheme: siteURL) && searchResults.searchTerm == searchTerm
     }
     
     override var eventLoggingCategory: EventLoggingCategory {
@@ -51,6 +54,20 @@ class SearchResultsViewController: ArticleCollectionViewController {
         return results.count
     }
 
+    override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard let articleURL = articleURL(at: indexPath) else {
+            collectionView.deselectItem(at: indexPath, animated: true)
+            return
+        }
+        
+        delegate?.articleCollectionViewController(self, didSelectArticleWith: articleURL, at: indexPath)
+        guard !delegatesSelection else {
+            return
+        }
+        
+        navigate(to: articleURL)
+    }
+
     func redirectMappingForSearchResult(_ result: MWKSearchResult) -> MWKSearchRedirectMapping? {
         return resultsInfo?.redirectMappings?.filter({ (mapping) -> Bool in
             return result.displayTitle == mapping.redirectToTitle
@@ -64,7 +81,7 @@ class SearchResultsViewController: ArticleCollectionViewController {
             return capitalizedWikidataDescription
         }
         
-        let redirectFormat = WMFLocalizedString("search-result-redirected-from", value: "Redirected from: %1$@", comment: "Text for search result letting user know if a result is a redirect from another article. Parameters:\n* %1$@ - article title the current search result redirected from")
+        let redirectFormat = WMFLocalizedString("search-result-redirected-from", value: "Redirected from: %1$@", comment: "Text for search result letting user know if a result is a redirect from another article. Parameters: * %1$@ - article title the current search result redirected from")
         let redirectMessage = String.localizedStringWithFormat(redirectFormat, redirectFromTitle)
         
         guard let description = capitalizedWikidataDescription else {

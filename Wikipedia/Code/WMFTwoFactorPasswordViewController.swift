@@ -103,7 +103,7 @@ class WMFTwoFactorPasswordViewController: WMFScrollViewController, UITextFieldDe
     }
     
     fileprivate func makeNextTextFieldFirstResponder(currentTextField: ThemeableTextField, direction: WMFTwoFactorNextFirstResponderDirection) {
-        guard let index = oathTokenFields.index(of: currentTextField) else {
+        guard let index = oathTokenFields.firstIndex(of: currentTextField) else {
             return
         }
         let nextIndex = index + direction.rawValue
@@ -265,7 +265,7 @@ class WMFTwoFactorPasswordViewController: WMFScrollViewController, UITextFieldDe
         else {
             return
         }
-        WMFAlertManager.sharedInstance.showAlert(WMFLocalizedString("account-creation-logging-in", value:"Logging in...", comment:"Alert shown after account successfully created and the user is being logged in automatically.\n{{Identical|Logging in}}"), sticky: true, dismissPreviousAlerts: true, tapCallBack: nil)
+        WMFAlertManager.sharedInstance.showAlert(WMFLocalizedString("account-creation-logging-in", value:"Logging in...", comment:"Alert shown after account successfully created and the user is being logged in automatically. {{Identical|Logging in}}"), sticky: true, dismissPreviousAlerts: true, tapCallBack: nil)
 
         WMFAuthenticationManager.sharedInstance.login(username: userName, password: password, retypePassword: nil, oathToken: token(), captchaID: captchaID, captchaWord: captchaWord) { (loginResult) in
             switch loginResult {

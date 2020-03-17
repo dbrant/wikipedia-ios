@@ -1,5 +1,4 @@
 #import "WMFSettingsMenuItem.h"
-#import <WMF/SessionSingleton.h>
 #import "Wikipedia-Swift.h"
 #import <WMF/MWKLanguageLinkController.h>
 
@@ -23,17 +22,18 @@
 
 + (WMFSettingsMenuItem *)itemForType:(WMFSettingsMenuItemType)type {
     switch (type) {
-        case WMFSettingsMenuItemType_Login: {
+        case WMFSettingsMenuItemType_LoginAccount: {
             NSString *userName = [WMFAuthenticationManager sharedInstance].loggedInUsername;
-            NSString *loginString = (userName) ? [NSString localizedStringWithFormat:WMFLocalizedStringWithDefaultValue(@"main-menu-account-title-logged-in", nil, nil, @"Logged in as %1$@", @"Header text used when account is logged in. %1$@ will be replaced with current username."), userName] : WMFLocalizedStringWithDefaultValue(@"main-menu-account-login", nil, nil, @"Log in", @"Button text for logging in.\n{{Identical|Log in}}");
+
+            NSString *loginString = (userName) ? WMFCommonStrings.account : WMFLocalizedStringWithDefaultValue(@"main-menu-account-login", nil, nil, @"Log in", @"Button text for logging in. {{Identical|Log in}}");
 
             return
                 [[WMFSettingsMenuItem alloc] initWithType:type
                                                     title:loginString
                                                  iconName:@"settings-user"
                                                 iconColor:[UIColor wmf_colorWithHex:(userName ? 0xFF8E2B : 0x9AA0A7)]
-                                           disclosureType:WMFSettingsMenuItemDisclosureType_ViewController
-                                           disclosureText:nil
+                                           disclosureType:WMFSettingsMenuItemDisclosureType_ViewControllerWithDisclosureText
+                                           disclosureText:userName
                                                isSwitchOn:NO];
         }
         case WMFSettingsMenuItemType_Support: {
@@ -73,7 +73,7 @@
                                                  iconName:@"settings-explore"
                                                 iconColor:[UIColor wmf_colorWithHex:0x5ac8fa]
                                            disclosureType:WMFSettingsMenuItemDisclosureType_ViewControllerWithDisclosureText
-                                           disclosureText:[NSUserDefaults wmf].defaultTabType != WMFAppDefaultTabTypeExplore ? @"Off" : @"On"
+                                           disclosureText:[NSUserDefaults standardUserDefaults].defaultTabType != WMFAppDefaultTabTypeExplore ? @"Off" : @"On"
                                                isSwitchOn:NO];
         }
         case WMFSettingsMenuItemType_Notifications: {
@@ -109,7 +109,7 @@
         case WMFSettingsMenuItemType_PrivacyPolicy: {
             return
                 [[WMFSettingsMenuItem alloc] initWithType:type
-                                                    title:WMFLocalizedStringWithDefaultValue(@"main-menu-privacy-policy", nil, nil, @"Privacy policy", @"Button text for showing privacy policy\n{{Identical|Privacy policy}}")
+                                                    title:WMFLocalizedStringWithDefaultValue(@"main-menu-privacy-policy", nil, nil, @"Privacy policy", @"Button text for showing privacy policy {{Identical|Privacy policy}}")
                                                  iconName:@"settings-privacy"
                                                 iconColor:[UIColor wmf_colorWithHex:0x884FDC]
                                            disclosureType:WMFSettingsMenuItemDisclosureType_ExternalLink
@@ -119,7 +119,7 @@
         case WMFSettingsMenuItemType_Terms: {
             return
                 [[WMFSettingsMenuItem alloc] initWithType:type
-                                                    title:WMFLocalizedStringWithDefaultValue(@"main-menu-terms-of-use", nil, nil, @"Terms of Use", @"Button text for showing site terms of use\n{{Identical|Terms of use}}")
+                                                    title:WMFLocalizedStringWithDefaultValue(@"main-menu-terms-of-use", nil, nil, @"Terms of Use", @"Button text for showing site terms of use {{Identical|Terms of use}}")
                                                  iconName:@"settings-terms"
                                                 iconColor:[UIColor wmf_colorWithHex:0x99A1A7]
                                            disclosureType:WMFSettingsMenuItemDisclosureType_ExternalLink
@@ -135,16 +135,6 @@
                                            disclosureType:WMFSettingsMenuItemDisclosureType_Switch
                                            disclosureText:nil
                                                isSwitchOn:[WMFEventLoggingService sharedInstance].isEnabled];
-        }
-        case WMFSettingsMenuItemType_ZeroWarnWhenLeaving: {
-            return
-                [[WMFSettingsMenuItem alloc] initWithType:type
-                                                    title:WMFLocalizedStringWithDefaultValue(@"zero-warn-when-leaving", nil, nil, @"Warn if leaving Zero", @"Main menu option to be warned if leaving Wikipedia Zero")
-                                                 iconName:@"settings-zero"
-                                                iconColor:[UIColor wmf_colorWithHex:0x1F95DE]
-                                           disclosureType:WMFSettingsMenuItemDisclosureType_Switch
-                                           disclosureText:nil
-                                               isSwitchOn:[SessionSingleton sharedInstance].zeroConfigurationManager.warnWhenLeaving];
         }
         case WMFSettingsMenuItemType_StorageAndSyncingDebug: {
             return
@@ -202,16 +192,6 @@
                                                     title:WMFLocalizedStringWithDefaultValue(@"settings-clear-cache", nil, nil, @"Clear cached data", @"Title for the 'Clear cached data' settings row")
                                                  iconName:@"settings-clear-cache"
                                                 iconColor:[UIColor wmf_colorWithHex:0xFFBF02]
-                                           disclosureType:WMFSettingsMenuItemDisclosureType_None
-                                           disclosureText:nil
-                                               isSwitchOn:NO];
-        }
-        case WMFSettingsMenuItemType_DebugCrash: {
-            return
-                [[WMFSettingsMenuItem alloc] initWithType:type
-                                                    title:WMFLocalizedStringWithDefaultValue(@"main-menu-debug-crash", nil, nil, @"Crash", @"Title for button that forces the application to crash.\n{{Identical|Crash}}")
-                                                 iconName:@"settings-crash"
-                                                iconColor:[UIColor wmf_colorWithHex:0xFF1B33]
                                            disclosureType:WMFSettingsMenuItemDisclosureType_None
                                            disclosureText:nil
                                                isSwitchOn:NO];

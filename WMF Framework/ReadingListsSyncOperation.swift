@@ -46,7 +46,7 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
                             }
                         }
                     }  else if let readingListError = error as? ReadingListsOperationError, readingListError == .cancelled {
-                        self.apiController.cancelPendingTasks()
+                        self.apiController.cancelAllTasks()
                         self.finish()
                     } else {
                         self.finish(with: error)
@@ -65,7 +65,7 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
         
         let taskGroup = WMFTaskGroup()
         
-        let hasValidLocalCredentials = apiController.session.hasValidCentralAuthCookies(for: .wikipedia)
+        let hasValidLocalCredentials = apiController.session.hasValidCentralAuthCookies(for: Configuration.current.wikipediaCookieDomain)
     
         if syncEndpointsAreAvailable && syncState.contains(.needsRemoteDisable) && hasValidLocalCredentials {
             var disableReadingListsError: Error? = nil
@@ -372,20 +372,20 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
         }
         let countOfEntriesToCreate = moc.wmf_numberValue(forKey: "WMFCountOfEntriesToCreate")?.int64Value ?? 10
         
-        let randomArticleFetcher = WMFRandomArticleFetcher()
+        let randomArticleFetcher = RandomArticleFetcher()
         let taskGroup = WMFTaskGroup()
         try moc.wmf_batchProcessObjects { (list: ReadingList) in
             guard !list.isDefault else {
                 return
             }
             do {
-                var results: [MWKSearchResult] = []
+                var summaryResponses: [String: ArticleSummary] = [:]
                 for i in 1...countOfEntriesToCreate {
                     taskGroup.enter()
-                    randomArticleFetcher.fetchRandomArticle(withSiteURL: siteURL, failure: { (failure) in
-                        taskGroup.leave()
-                    }, success: { (searchResult) in
-                        results.append(searchResult)
+                    randomArticleFetcher.fetchRandomArticle(withSiteURL: siteURL, completion: { (error, result, summary) in
+                        if let key = result?.wmf_databaseKey, let summary = summary {
+                           summaryResponses[key] = summary
+                        }
                         taskGroup.leave()
                     })
                     if i % 16 == 0 || i == countOfEntriesToCreate {
@@ -393,25 +393,14 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
                         guard !isCancelled  else {
                             throw ReadingListsOperationError.cancelled
                         }
-                        let articleURLs = results.compactMap { $0.articleURL(forSiteURL: siteURL) }
-                        taskGroup.enter()
-                        var summaryResponses: [String: [String: Any]] = [:]
-                        apiController.session.fetchArticleSummaryResponsesForArticles(withURLs: articleURLs, completion: { (actualSummaryResponses) in
-                            // workaround this method not being async
-                            summaryResponses = actualSummaryResponses
-                            taskGroup.leave()
-                        })
-                        taskGroup.wait()
-                        guard !isCancelled  else {
-                            throw ReadingListsOperationError.cancelled
-                        }
-                        let articles = try moc.wmf_createOrUpdateArticleSummmaries(withSummaryResponses: summaryResponses)
+                        let articlesByKey = try moc.wmf_createOrUpdateArticleSummmaries(withSummaryResponses: summaryResponses)
+                        let articles = Array(articlesByKey.values)
                         try readingListsController.add(articles: articles, to: list, in: moc)
-                        if let defaultReadingList = moc.wmf_fetchDefaultReadingList() {
+                        if let defaultReadingList = moc.defaultReadingList {
                             try readingListsController.add(articles: articles, to: defaultReadingList, in: moc)
                         }
                         try moc.save()
-                        results.removeAll(keepingCapacity: true)
+                        summaryResponses.removeAll(keepingCapacity: true)
                     }
                 }
             } catch let error {
@@ -458,10 +447,10 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
             newReadingLists.append(newReadingList)
         }
         newReadingLists.append(readingList)
-        if newReadingLists.count > 0 {
+        if !newReadingLists.isEmpty {
             let userInfo = [ReadingListsController.readingListsWereSplitNotificationEntryLimitKey: size]
             NotificationCenter.default.post(name: ReadingListsController.readingListsWereSplitNotification, object: nil, userInfo: userInfo)
-            UserDefaults.wmf.wmf_setDidSplitExistingReadingLists(true)
+            UserDefaults.standard.wmf_setDidSplitExistingReadingLists(true)
         }
         return newReadingLists
     }
@@ -491,7 +480,7 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
                         moc.delete(localReadingList)
                     } else if !localReadingList.isDefault {
                         let entryLimit = moc.wmf_readingListsConfigMaxListsPerUser
-                        if localReadingList.countOfEntries > entryLimit && !UserDefaults.wmf.wmf_didSplitExistingReadingLists() {
+                        if localReadingList.countOfEntries > entryLimit && !UserDefaults.standard.wmf_didSplitExistingReadingLists() {
                             if let splitReadingLists = try? split(readingList: localReadingList, intoReadingListsOfSize: entryLimit, in: moc) {
                                 listsToCreate.append(contentsOf: splitReadingLists)
                             }
@@ -729,14 +718,15 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
     }
     
     internal func locallyCreate(_ readingListEntries: [APIReadingListEntry], with readingListsByEntryID: [Int64: ReadingList]? = nil, in moc: NSManagedObjectContext) throws {
-        guard readingListEntries.count > 0 else {
+        guard !readingListEntries.isEmpty else {
             return
         }
+        let summaryFetcher = ArticleSummaryFetcher(session: apiController.session, configuration: Configuration.current)
         let group = WMFTaskGroup()
         let semaphore = DispatchSemaphore(value: 1)
         var remoteEntriesToCreateLocallyByArticleKey: [String: APIReadingListEntry] = [:]
         var requestedArticleKeys: Set<String> = []
-        var articleSummariesByArticleKey: [String: [String: Any]] = [:]
+        var articleSummariesByArticleKey: [String: ArticleSummary] = [:]
         var entryCount = 0
         var articlesByKey: [String: WMFArticle] = [:]
         for remoteEntry in readingListEntries {
@@ -745,7 +735,7 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
                 guard !isDeleted else {
                     return
                 }
-                guard let articleURL = remoteEntry.articleURL, let articleKey = articleURL.wmf_articleDatabaseKey else {
+                guard let articleURL = remoteEntry.articleURL, let articleKey = articleURL.wmf_databaseKey else {
                     return
                 }
                 remoteEntriesToCreateLocallyByArticleKey[articleKey] = remoteEntry
@@ -757,7 +747,7 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
                     articlesByKey[articleKey] = article
                 } else {
                     group.enter()
-                    apiController.session.fetchSummary(for: articleURL, completionHandler: { (result, response, error) in
+                    summaryFetcher.fetchSummaryForArticle(with: articleKey, completion: { (result, response, error) in
                         guard let result = result else {
                             group.leave()
                             return
@@ -777,14 +767,8 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
             throw ReadingListsOperationError.cancelled
         }
         
-        let articles = try moc.wmf_createOrUpdateArticleSummmaries(withSummaryResponses: articleSummariesByArticleKey)
-        for article in articles {
-            guard let articleKey = article.key else {
-                continue
-            }
-            articlesByKey[articleKey] = article
-        }
-        
+        let updatedArticlesByKey = try moc.wmf_createOrUpdateArticleSummmaries(withSummaryResponses: articleSummariesByArticleKey)
+        articlesByKey.merge(updatedArticlesByKey, uniquingKeysWith: { (a, b) in return a })
         var finalReadingListsByEntryID: [Int64: ReadingList]
         if let readingListsByEntryID = readingListsByEntryID {
             finalReadingListsByEntryID = readingListsByEntryID
@@ -830,10 +814,20 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
                     return
                 }
                 
-                guard let entry = NSEntityDescription.insertNewObject(forEntityName: "ReadingListEntry", into: moc) as? ReadingListEntry else {
-                    return
-                }
+                var entry = ReadingListEntry(context: moc)
                 entry.update(with: remoteEntry)
+    
+                // if there's a key mismatch, locally delete the bad entry and create a new one with the correct key
+                if remoteEntry.articleKey != article.key {
+                    entry.list = readingList
+                    entry.articleKey = remoteEntry.articleKey
+                    try? readingListsController.markLocalDeletion(for: [entry])
+                    entry = ReadingListEntry(context: moc)
+                    entry.update(with: remoteEntry)
+                    entry.readingListEntryID = nil
+                    entry.isUpdatedLocally = true
+                }
+                
                 if entry.createdDate == nil {
                     entry.createdDate = NSDate()
                 }
@@ -857,7 +851,7 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
     }
     
     internal func createOrUpdate(remoteReadingLists: [APIReadingList], deleteMissingLocalLists: Bool = false, inManagedObjectContext moc: NSManagedObjectContext) throws -> Int {
-        guard remoteReadingLists.count > 0 || deleteMissingLocalLists else {
+        guard !remoteReadingLists.isEmpty || deleteMissingLocalLists else {
             return 0
         }
         var createdOrUpdatedReadingListsCount = 0
@@ -874,7 +868,7 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
         }
         
         if let remoteDefaultReadingList = remoteDefaultReadingList {
-            let defaultReadingList = moc.wmf_fetchDefaultReadingList()
+            let defaultReadingList = moc.defaultReadingList
             defaultReadingList?.readingListID = NSNumber(value: remoteDefaultReadingList.id)
         }
         
@@ -950,7 +944,7 @@ internal class ReadingListsSyncOperation: ReadingListsOperation {
     }
     
     internal func createOrUpdate(remoteReadingListEntries: [APIReadingListEntry], for readingListID: Int64? = nil, deleteMissingLocalEntries: Bool = false, inManagedObjectContext moc: NSManagedObjectContext) throws -> Int {
-        guard remoteReadingListEntries.count > 0 || deleteMissingLocalEntries else {
+        guard !remoteReadingListEntries.isEmpty || deleteMissingLocalEntries else {
             return 0
         }
         var createdOrUpdatedReadingListEntriesCount = 0

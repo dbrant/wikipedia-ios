@@ -1,33 +1,17 @@
 #import "WMFSettingsTableViewCell.h"
+@import WMF;
 #import "Wikipedia-Swift.h"
-#import <WMF/NSUserActivity+WMFExtensions.h>
 
-// View Controllers
 #import "WMFSettingsViewController.h"
 #import "WMFLanguagesViewController.h"
 #import "AboutViewController.h"
-#import "WMFHelpViewController.h"
-
-// Models
-#import <WMF/MWKLanguageLink.h>
-
-// Frameworks
-#import <HockeySDK/HockeySDK.h>
-#if WMF_TWEAKS_ENABLED
-#import <Tweaks/FBTweakViewController.h>
-#import <Tweaks/FBTweakStore.h>
-#endif
-
-// Other
 #import "UIBarButtonItem+WMFButtonConvenience.h"
-#import <WMF/UIView+WMFDefaultNib.h>
-#import <WMF/SessionSingleton.h>
 #import "UIViewController+WMFStoryboardUtilities.h"
-#import <WMF/MWKLanguageLinkController.h>
-#import "UIViewController+WMFOpenExternalUrl.h"
 #import "WMFDailyStatsLoggingFunnel.h"
-#import <WMF/NSBundle+WMFInfoUtils.h>
-#import "Wikipedia-Swift.h"
+
+#if WMF_TWEAKS_ENABLED
+@import Tweaks;
+#endif
 
 #pragma mark - Static URLs
 
@@ -41,9 +25,9 @@ static NSString *const WMFSettingsURLRate = @"itms-apps://itunes.apple.com/app/i
 static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?utm_medium=WikipediaApp&utm_campaign=iOS&utm_source=<app-version>&uselang=<langcode>";
 
 #if WMF_TWEAKS_ENABLED
-@interface WMFSettingsViewController () <UITableViewDelegate, UITableViewDataSource, WMFPreferredLanguagesViewControllerDelegate, FBTweakViewControllerDelegate>
+@interface WMFSettingsViewController () <UITableViewDelegate, UITableViewDataSource, WMFPreferredLanguagesViewControllerDelegate, WMFAccountViewControllerDelegate, FBTweakViewControllerDelegate>
 #else
-@interface WMFSettingsViewController () <UITableViewDelegate, UITableViewDataSource, WMFPreferredLanguagesViewControllerDelegate>
+@interface WMFSettingsViewController () <UITableViewDelegate, UITableViewDataSource, WMFPreferredLanguagesViewControllerDelegate, WMFAccountViewControllerDelegate>
 #endif
 
 @property (nonatomic, strong, readwrite) MWKDataStore *dataStore;
@@ -80,6 +64,11 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
     self.authManager = [WMFAuthenticationManager sharedInstance];
 
     self.navigationBar.displayType = NavigationBarDisplayTypeLargeTitle;
+#if UI_TEST
+    if ([[NSUserDefaults standardUserDefaults] wmf_isFastlaneSnapshotInProgress]) {
+        self.tableView.decelerationRate = UIScrollViewDecelerationRateFast;
+    }
+#endif
 }
 
 - (void)dealloc {
@@ -172,6 +161,11 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
     return cell;
 }
 
+- (BOOL)accessibilityPerformEscape {
+    [self closeButtonPressed];
+    return YES;
+}
+
 - (void)disclosureSwitchChanged:(UISwitch *)disclosureSwitch {
     WMFSettingsMenuItemType type = (WMFSettingsMenuItemType)disclosureSwitch.tag;
     [self updateStateForMenuItemType:type isSwitchOnValue:disclosureSwitch.isOn];
@@ -195,12 +189,7 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
                 [[UserHistoryFunnel shared] logSnapshot];
                 [eventLoggingService reset];
             }
-            [[WMFSession shared] setShouldSendUsageReports:isOn];
-            [[QueuesSingleton sharedInstance] reset];
         } break;
-        case WMFSettingsMenuItemType_ZeroWarnWhenLeaving:
-            [SessionSingleton sharedInstance].zeroConfigurationManager.warnWhenLeaving = isOn;
-            break;
         default:
             break;
     }
@@ -211,8 +200,8 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     UITableViewCell *cell = [self.tableView cellForRowAtIndexPath:indexPath];
     switch (cell.tag) {
-        case WMFSettingsMenuItemType_Login:
-            [self showLoginOrLogout];
+        case WMFSettingsMenuItemType_LoginAccount:
+            [self showLoginOrAccount];
             break;
         case WMFSettingsMenuItemType_SearchLanguage:
             [self showLanguages];
@@ -239,23 +228,22 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
             break;
         }
         case WMFSettingsMenuItemType_Support:
-            [self wmf_openExternalUrl:[self donationURL] useSafari:YES];
+            [self wmf_navigateToURL:[self donationURL] useSafari:YES];
             break;
         case WMFSettingsMenuItemType_PrivacyPolicy:
-            [self wmf_openExternalUrl:[NSURL URLWithString:[WMFCommonStrings privacyPolicyURLString]]];
+            [self wmf_navigateToURL:[NSURL URLWithString:[WMFCommonStrings privacyPolicyURLString]]];
             break;
         case WMFSettingsMenuItemType_Terms:
-            [self wmf_openExternalUrl:[NSURL URLWithString:WMFSettingsURLTerms]];
+            [self wmf_navigateToURL:[NSURL URLWithString:WMFSettingsURLTerms]];
             break;
         case WMFSettingsMenuItemType_ZeroFAQ:
-            [self wmf_openExternalUrl:[NSURL URLWithString:WMFSettingsURLZeroFAQ]];
+            [self wmf_navigateToURL:[NSURL URLWithString:WMFSettingsURLZeroFAQ]];
             break;
         case WMFSettingsMenuItemType_RateApp:
-            [self wmf_openExternalUrl:[NSURL URLWithString:WMFSettingsURLRate] useSafari:YES];
+            [self wmf_navigateToURL:[NSURL URLWithString:WMFSettingsURLRate] useSafari:YES];
             break;
         case WMFSettingsMenuItemType_SendFeedback: {
-            WMFHelpViewController *vc = [[WMFHelpViewController alloc] initWithDataStore:self.dataStore];
-            [vc applyTheme:self.theme];
+            WMFHelpViewController *vc = [[WMFHelpViewController alloc] initWithDataStore:self.dataStore theme:self.theme];
             [self.navigationController pushViewController:vc animated:YES];
         } break;
         case WMFSettingsMenuItemType_About: {
@@ -265,9 +253,6 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
         }
         case WMFSettingsMenuItemType_ClearCache:
             [self showClearCacheActionSheet];
-            break;
-        case WMFSettingsMenuItemType_DebugCrash:
-            [[self class] generateTestCrash];
             break;
         case WMFSettingsMenuItemType_DevSettings: {
 #if WMF_TWEAKS_ENABLED
@@ -311,37 +296,26 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
 #pragma mark - Presentation
 
 - (void)presentViewControllerWrappedInNavigationController:(UIViewController<WMFThemeable> *)viewController {
-    WMFThemeableNavigationController *themeableNavController = [[WMFThemeableNavigationController alloc] initWithRootViewController:viewController theme:self.theme];
+    WMFThemeableNavigationController *themeableNavController = [[WMFThemeableNavigationController alloc] initWithRootViewController:viewController theme:self.theme style:WMFThemeableNavigationControllerStyleSheet];
     [self presentViewController:themeableNavController animated:YES completion:nil];
 }
 
 #pragma mark - Log in and out
 
-- (void)showLoginOrLogout {
+- (void)showLoginOrAccount {
     NSString *userName = [WMFAuthenticationManager sharedInstance].loggedInUsername;
     if (userName) {
-        [self showLogoutActionSheet];
+        WMFAccountViewController *accountVC = [[WMFAccountViewController alloc] init];
+        accountVC.dataStore = self.dataStore;
+        accountVC.delegate = self;
+        [accountVC applyTheme:self.theme];
+        [self.navigationController pushViewController:accountVC animated:YES];
     } else {
         WMFLoginViewController *loginVC = [WMFLoginViewController wmf_initialViewControllerFromClassStoryboard];
         [loginVC applyTheme:self.theme];
         [self presentViewControllerWrappedInNavigationController:loginVC];
         [[LoginFunnel shared] logLoginStartInSettings];
     }
-}
-
-- (void)showLogoutActionSheet {
-    UIAlertController *sheet = [UIAlertController alertControllerWithTitle:WMFLocalizedStringWithDefaultValue(@"main-menu-account-logout-are-you-sure", nil, nil, @"Are you sure you want to log out?", @"Header asking if user is sure they wish to log out.") message:nil preferredStyle:UIAlertControllerStyleAlert];
-    @weakify(self)
-        [sheet addAction:[UIAlertAction actionWithTitle:WMFLocalizedStringWithDefaultValue(@"main-menu-account-logout", nil, nil, @"Log out", @"Button text for logging out. The username of the user who is currently logged in is displayed after the message, e.g. Log out ExampleUserName.\n{{Identical|Log out}}")
-                                                  style:UIAlertActionStyleDestructive
-                                                handler:^(UIAlertAction *_Nonnull action) {
-                                                    @strongify(self)
-                                                        [self logout];
-                                                    [self loadSections];
-                                                }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:WMFLocalizedStringWithDefaultValue(@"main-menu-account-logout-cancel", nil, nil, @"Cancel", @"Button text for hiding the log out menu.\n{{Identical|Cancel}}") style:UIAlertActionStyleCancel handler:NULL]];
-
-    [self presentViewController:sheet animated:YES completion:NULL];
 }
 
 #pragma mark - Clear Cache
@@ -355,18 +329,18 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
     [sheet addAction:[UIAlertAction actionWithTitle:WMFLocalizedStringWithDefaultValue(@"settings-clear-cache-ok", nil, nil, @"Clear cache", @"Confirm action to clear cached data")
                                               style:UIAlertActionStyleDestructive
                                             handler:^(UIAlertAction *_Nonnull action) {
-                                                [self.dataStore clearCachesForUnsavedArticles];
+                                                [self.dataStore clearTemporaryCache];
                                             }]];
-    [sheet addAction:[UIAlertAction actionWithTitle:WMFLocalizedStringWithDefaultValue(@"settings-clear-cache-cancel", nil, nil, @"Cancel", @"Cancel action to clear cached data\n{{Identical|Cancel}}") style:UIAlertActionStyleCancel handler:NULL]];
+    [sheet addAction:[UIAlertAction actionWithTitle:WMFLocalizedStringWithDefaultValue(@"settings-clear-cache-cancel", nil, nil, @"Cancel", @"Cancel action to clear cached data {{Identical|Cancel}}") style:UIAlertActionStyleCancel handler:NULL]];
 
     [self presentViewController:sheet animated:YES completion:NULL];
 }
 
 - (void)logout {
-    [self wmf_showKeepSavedArticlesOnDevicePanelIfNecessaryWithTriggeredBy:KeepSavedArticlesTriggerLogout
+    [self wmf_showKeepSavedArticlesOnDevicePanelIfNeededTriggeredBy:KeepSavedArticlesTriggerLogout
                                                                      theme:self.theme
                                                                 completion:^{
-                                                                    [[WMFAuthenticationManager sharedInstance] logoutWithCompletion:^{
+                                                                    [[WMFAuthenticationManager sharedInstance] logoutInitiatedBy:LogoutInitiatorUser completion:^{
                                                                         [[LoginFunnel shared] logLogoutInSettings];
                                                                     }];
                                                                 }];
@@ -384,9 +358,9 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
 
 - (void)languagesController:(WMFPreferredLanguagesViewController *)controller didUpdatePreferredLanguages:(NSArray<MWKLanguageLink *> *)languages {
     if ([languages count] > 1) {
-        [[NSUserDefaults wmf] wmf_setShowSearchLanguageBar:YES];
+        [[NSUserDefaults standardUserDefaults] wmf_setShowSearchLanguageBar:YES];
     } else {
-        [[NSUserDefaults wmf] wmf_setShowSearchLanguageBar:NO];
+        [[NSUserDefaults standardUserDefaults] wmf_setShowSearchLanguageBar:NO];
     }
 
     [self loadSections];
@@ -441,17 +415,6 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
 #endif
 }
 
-#pragma mark - Debugging
-
-+ (void)generateTestCrash {
-    if ([[BITHockeyManager sharedHockeyManager] crashManager]) {
-        DDLogWarn(@"Generating test crash!");
-        __builtin_trap();
-    } else {
-        DDLogError(@"Crash manager was not setup!");
-    }
-}
-
 #if WMF_TWEAKS_ENABLED
 - (void)tweakViewControllerPressedDone:(FBTweakViewController *)tweakViewController {
     [[NSNotificationCenter defaultCenter] postNotificationName:FBTweakShakeViewControllerDidDismissNotification object:tweakViewController];
@@ -495,10 +458,9 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
     [self.sections addObject:[self section_2]];
     [self.sections addObject:[self section_3]];
     [self.sections addObject:[self section_4]];
-    [self.sections addObject:[self section_5]];
-    WMFSettingsTableViewSection *section6 = [self section_6];
-    if (section6) {
-        [self.sections addObject:section6];
+    WMFSettingsTableViewSection *section5 = [self section_5];
+    if (section5) {
+        [self.sections addObject:section5];
     }
 
     [self.tableView reloadData];
@@ -507,7 +469,7 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
 #pragma mark - Section structure
 
 - (WMFSettingsTableViewSection *)section_1 {
-    NSArray *items = @[[WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_Login],
+    NSArray *items = @[[WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_LoginAccount],
                        [WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_Support]];
     WMFSettingsTableViewSection *section = [[WMFSettingsTableViewSection alloc] initWithItems:items
                                                                                   headerTitle:nil
@@ -547,16 +509,6 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
 
 - (WMFSettingsTableViewSection *)section_4 {
     WMFSettingsTableViewSection *section = [[WMFSettingsTableViewSection alloc] initWithItems:@[
-        [WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_ZeroWarnWhenLeaving],
-        [WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_ZeroFAQ]
-    ]
-                                                                                  headerTitle:WMFLocalizedStringWithDefaultValue(@"main-menu-heading-zero", nil, nil, @"Wikipedia Zero", @"Header text for the Wikipedia Zero section of the menu. ([https://foundation.wikimedia.org/wiki/Wikipedia_Zero More information]).\n{{Identical|Wikipedia Zero}}")
-                                                                                   footerText:nil];
-    return section;
-}
-
-- (WMFSettingsTableViewSection *)section_5 {
-    WMFSettingsTableViewSection *section = [[WMFSettingsTableViewSection alloc] initWithItems:@[
         [WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_RateApp],
         [WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_SendFeedback],
         [WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_About]
@@ -566,13 +518,12 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
     return section;
 }
 
-- (nullable WMFSettingsTableViewSection *)section_6 {
+- (nullable WMFSettingsTableViewSection *)section_5 {
 #if WMF_TWEAKS_ENABLED
     WMFSettingsTableViewSection *section = [[WMFSettingsTableViewSection alloc] initWithItems:@[
-        [WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_DebugCrash],
         [WMFSettingsMenuItem itemForType:WMFSettingsMenuItemType_DevSettings]
     ]
-                                                                                  headerTitle:WMFLocalizedStringWithDefaultValue(@"main-menu-heading-debug", nil, nil, @"Debug", @"Header text for the debug section of the menu. The debug menu is conditionally shown if in Xcode debug mode.\n{{Identical|Debug}}")
+                                                                                  headerTitle:WMFLocalizedStringWithDefaultValue(@"main-menu-heading-debug", nil, nil, @"Debug", @"Header text for the debug section of the menu. The debug menu is conditionally shown if in Xcode debug mode. {{Identical|Debug}}")
                                                                                    footerText:nil];
     return section;
 #else
@@ -615,7 +566,9 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
 
 - (void)observeValueForKeyPath:(nullable NSString *)keyPath ofObject:(nullable id)object change:(nullable NSDictionary<NSKeyValueChangeKey, id> *)change context:(nullable void *)context {
     if (context == &kvo_WMFSettingsViewController_authManager_loggedInUsername) {
-        [self loadSections];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self loadSections];
+        });
     } else {
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
     }
@@ -631,6 +584,13 @@ static NSString *const WMFSettingsURLDonation = @"https://donate.wikimedia.org/?
     self.tableView.backgroundColor = theme.colors.baseBackground;
     self.tableView.indicatorStyle = theme.scrollIndicatorStyle;
     self.view.backgroundColor = theme.colors.baseBackground;
+    [self loadSections];
+}
+
+#pragma Mark WMFAccountViewControllerDelegate
+
+- (void)accountViewControllerDidTapLogout:(WMFAccountViewController * _Nonnull)accountViewController {
+    [self logout];
     [self loadSections];
 }
 

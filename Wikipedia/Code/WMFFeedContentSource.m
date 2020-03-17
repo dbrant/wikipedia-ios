@@ -88,7 +88,7 @@ NSInteger const WMFFeedInTheNewsNotificationViewCountDays = 5;
                 if (!articleURL) {
                     return;
                 }
-                NSString *databaseKey = articleURL.wmf_articleDatabaseKey;
+                NSString *databaseKey = articleURL.wmf_databaseKey;
                 if (!databaseKey) {
                     return;
                 }
@@ -121,7 +121,7 @@ NSInteger const WMFFeedInTheNewsNotificationViewCountDays = 5;
                     if (!articleURL) {
                         return;
                     }
-                    NSString *databaseKey = articleURL.wmf_articleDatabaseKey;
+                    NSString *databaseKey = articleURL.wmf_databaseKey;
                     if (!databaseKey) {
                         return;
                     }
@@ -339,7 +339,7 @@ NSInteger const WMFFeedInTheNewsNotificationViewCountDays = 5;
 }
 
 - (void)addNewsNotificationGroupForNewsGroup:(WMFContentGroup *)newsGroup inManagedObjectContext:(NSManagedObjectContext *)moc {
-    NSUserDefaults *userDefaults = [NSUserDefaults wmf];
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     if (newsGroup && newsGroup.isVisible && ![userDefaults wmf_inTheNewsNotificationsEnabled] && ![userDefaults wmf_didShowNewsNotificationCardInFeed]) {
         NSURL *URL = [WMFContentGroup notificationContentGroupURL];
         [moc fetchOrCreateGroupForURL:URL ofKind:WMFContentGroupKindNotification forDate:newsGroup.date withSiteURL:self.siteURL associatedContent:nil customizationBlock:NULL];
@@ -377,7 +377,7 @@ NSInteger const WMFFeedInTheNewsNotificationViewCountDays = 5;
         return;
     }
 
-    if (![[NSUserDefaults wmf] wmf_inTheNewsNotificationsEnabled]) {
+    if (![[NSUserDefaults standardUserDefaults] wmf_inTheNewsNotificationsEnabled]) {
         return;
     }
 
@@ -398,7 +398,7 @@ NSInteger const WMFFeedInTheNewsNotificationViewCountDays = 5;
     NSArray<WMFFeedTopReadArticlePreview *> *articlePreviews = feedDay.topRead.articlePreviews;
     NSMutableDictionary<NSString *, WMFFeedTopReadArticlePreview *> *topReadArticlesByKey = [NSMutableDictionary dictionaryWithCapacity:articlePreviews.count];
     for (WMFFeedTopReadArticlePreview *articlePreview in articlePreviews) {
-        NSString *key = articlePreview.articleURL.wmf_articleDatabaseKey;
+        NSString *key = articlePreview.articleURL.wmf_databaseKey;
         if (!key) {
             continue;
         }
@@ -437,7 +437,7 @@ NSInteger const WMFFeedInTheNewsNotificationViewCountDays = 5;
         return;
     }
 
-    NSString *key = articleURL.wmf_articleDatabaseKey;
+    NSString *key = articleURL.wmf_databaseKey;
     if (!key) {
         done();
         return;
@@ -476,12 +476,12 @@ NSInteger const WMFFeedInTheNewsNotificationViewCountDays = 5;
                   inManagedObjectContext:(NSManagedObjectContext *)moc
                                    force:(BOOL)force {
     if (!newsStory.featuredArticlePreview) {
-        NSString *articlePreviewKey = articlePreview.URL.wmf_articleDatabaseKey;
+        NSString *articlePreviewKey = articlePreview.URL.wmf_databaseKey;
         if (!articlePreviewKey) {
             return NO;
         }
         for (WMFFeedArticlePreview *preview in newsStory.articlePreviews) {
-            if ([preview.articleURL.wmf_articleDatabaseKey isEqualToString:articlePreviewKey]) {
+            if ([preview.articleURL.wmf_databaseKey isEqualToString:articlePreviewKey]) {
                 newsStory.featuredArticlePreview = preview;
                 break;
             } else {
@@ -563,7 +563,7 @@ NSInteger const WMFFeedInTheNewsNotificationViewCountDays = 5;
             // nil the components to indicate it should be sent immediately, date should still be [NSDate date]
             notificationDateComponents = nil;
         }
-        NSUserDefaults *defaults = [NSUserDefaults wmf];
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
         NSDate *mostRecentDate = [defaults wmf_mostRecentInTheNewsNotificationDate];
         if (notificationDate && mostRecentDate && [userCalendar wmf_daysFromDate:notificationDate toDate:mostRecentDate] > 0) { // don't send if we have a notification scheduled for tomorrow already
             return NO;
@@ -586,7 +586,7 @@ NSInteger const WMFFeedInTheNewsNotificationViewCountDays = 5;
         article.newsNotificationDate = notificationDate;
     }
 
-    NSUserDefaults *defaults = [NSUserDefaults wmf];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSDate *mostRecentDate = [defaults wmf_mostRecentInTheNewsNotificationDate];
     if (notificationDate && mostRecentDate && [userCalendar isDate:mostRecentDate inSameDayAsDate:notificationDate]) {
         NSInteger count = [defaults wmf_inTheNewsMostRecentDateNotificationCount] + 1;

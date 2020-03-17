@@ -211,7 +211,7 @@ public class CollectionViewEditController: NSObject, UIGestureRecognizerDelegate
 
         activeIndexPath = indexPath
         
-        guard let cell = activeCell, cell.actions.count > 0 else {
+        guard let cell = activeCell, !cell.actions.isEmpty else {
             activeIndexPath = nil
             return shouldBegin
         }
@@ -576,7 +576,7 @@ public class CollectionViewEditController: NSObject, UIGestureRecognizerDelegate
     
     public var isTextEditing: Bool = false {
         didSet {
-            editingState = .editing
+            editingState = isTextEditing ? .editing : .done
         }
     }
     
@@ -598,9 +598,6 @@ public class CollectionViewEditController: NSObject, UIGestureRecognizerDelegate
     
     private var isBatchEditToolbarHidden: Bool = true {
         didSet {
-            guard collectionView.window != nil else {
-                return
-            }
             self.navigationDelegate?.didSetBatchEditToolbarHidden(batchEditToolbarViewController, isHidden: self.isBatchEditToolbarHidden, with: self.batchEditToolbarItems)
         }
     }
@@ -613,9 +610,21 @@ public class CollectionViewEditController: NSObject, UIGestureRecognizerDelegate
     }
     
     @objc public func didPerformBatchEditToolbarAction(with sender: UIBarButtonItem) {
-        let didPerformAction = delegate?.didPerformBatchEditToolbarAction?(batchEditToolbarActions[sender.tag]) ?? false
-        if didPerformAction {
+        guard let delegate = delegate else {
+            assertionFailure("delegate should be set by now")
             editingState = .closed
+            return
+        }
+        guard let didPerformBatchEditToolbarAction = delegate.didPerformBatchEditToolbarAction else {
+            assertionFailure("delegate should implement didPerformBatchEditToolbarAction")
+            editingState = .closed
+            return
+        }
+        let action = batchEditToolbarActions[sender.tag]
+        didPerformBatchEditToolbarAction(action) { finished in
+            if finished {
+                self.editingState = .closed
+            }
         }
     }
     

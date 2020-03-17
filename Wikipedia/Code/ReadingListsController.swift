@@ -104,6 +104,8 @@ public typealias ReadingListsController = WMFReadingListsController
     @objc public static let syncDidFinishSyncedReadingListsCountKey = NSNotification.Name(rawValue: "syncedReadingLists")
     @objc public static let syncDidFinishSyncedReadingListEntriesCountKey = NSNotification.Name(rawValue: "syncedReadingListEntries")
 
+    @objc public static let userDidSaveOrUnsaveArticleNotification = NSNotification.Name(rawValue: "WMFUserDidSaveOrUnsaveArticleNotification")
+
     internal weak var dataStore: MWKDataStore!
     internal let apiController = ReadingListsAPIController()
         
@@ -213,7 +215,7 @@ public typealias ReadingListsController = WMFReadingListsController
     func listExists(with name: String, in moc: NSManagedObjectContext) throws -> Bool {
         let name = name.precomposedStringWithCanonicalMapping
         let existingOrDefaultListRequest: NSFetchRequest<ReadingList> = ReadingList.fetchRequest()
-        existingOrDefaultListRequest.predicate = NSPredicate(format: "canonicalName MATCHES %@ or isDefault == YES", name)
+        existingOrDefaultListRequest.predicate = NSPredicate(format: "(canonicalName MATCHES %@ OR isDefault == YES) AND isDeletedLocally == NO", name)
         existingOrDefaultListRequest.fetchLimit = 2
         let lists = try moc.fetch(existingOrDefaultListRequest)
         return lists.first(where: { $0.name == name }) != nil
@@ -258,7 +260,7 @@ public typealias ReadingListsController = WMFReadingListsController
     /// - Parameters:
     ///   - readingListEntriess: the reading lists to delete
     internal func markLocalDeletion(for readingListEntries: [ReadingListEntry]) throws {
-        guard readingListEntries.count > 0 else {
+        guard !readingListEntries.isEmpty else {
             return
         }
         var lists: Set<ReadingList> = []
@@ -290,7 +292,7 @@ public typealias ReadingListsController = WMFReadingListsController
     }
     
     internal func add(articles: [WMFArticle], to readingList: ReadingList, in moc: NSManagedObjectContext) throws {
-        guard articles.count > 0 else {
+        guard !articles.isEmpty else {
             return
         }
 
@@ -452,7 +454,35 @@ public typealias ReadingListsController = WMFReadingListsController
             NotificationCenter.default.post(name: ReadingListsController.readingListsServerDidConfirmSyncWasEnabledForAccountNotification, object: nil, userInfo: [ReadingListsController.readingListsServerDidConfirmSyncWasEnabledForAccountWasSyncEnabledKey: NSNumber(value: wasSyncEnabledForAccount), ReadingListsController.readingListsServerDidConfirmSyncWasEnabledForAccountWasSyncEnabledOnDeviceKey: NSNumber(value: wasSyncEnabledOnDevice), ReadingListsController.readingListsServerDidConfirmSyncWasEnabledForAccountWasSyncDisabledOnDeviceKey: NSNumber(value: wasSyncDisabledOnDevice)])
         }
     }
-    
+
+    public func eraseAllSavedArticlesAndReadingLists() {
+        assert(Thread.isMainThread)
+
+        let oldSyncState = syncState
+        var newSyncState = oldSyncState
+
+        if isSyncEnabled {
+            // Since there is no batch delete on the server,
+            // we remove local and remote reading lists
+            // by disabling and then enabling the service.
+            // Otherwise, we'd have to delete everything via single requests.
+            newSyncState.insert(.needsRemoteDisable)
+            newSyncState.insert(.needsRemoteEnable)
+            newSyncState.insert(.needsSync)
+        } else {
+            newSyncState.insert(.needsLocalClear)
+            newSyncState.remove(.needsSync)
+        }
+
+        newSyncState.remove(.needsUpdate)
+
+        guard newSyncState != oldSyncState else {
+            return
+        }
+        syncState = newSyncState
+        sync()
+    }
+
     @objc public func setSyncEnabled(_ isSyncEnabled: Bool, shouldDeleteLocalLists: Bool, shouldDeleteRemoteLists: Bool) {
         
         let oldSyncState = self.syncState
@@ -494,7 +524,7 @@ public typealias ReadingListsController = WMFReadingListsController
     
     private func cancelSync(_ completion: @escaping () -> Void) {
         operationQueue.cancelAllOperations()
-        apiController.cancelPendingTasks()
+        apiController.cancelAllTasks()
         operationQueue.addOperation {
             DispatchQueue.main.async(execute: completion)
         }
@@ -514,13 +544,11 @@ public typealias ReadingListsController = WMFReadingListsController
                 newValue.insert(.needsSync)
                 self.syncState = newValue
             }
-            let sync = ReadingListsSyncOperation(readingListsController: self)
-            addOperation(sync)
-            operationQueue.addOperation {
-                DispatchQueue.main.async {
-                    completion?()
+            _sync({
+                if let completion = completion {
+                    DispatchQueue.main.async(execute: completion)
                 }
-            }
+            })
         #endif
     }
     
@@ -530,7 +558,7 @@ public typealias ReadingListsController = WMFReadingListsController
         if let completion = completion {
             let completionBlockOp = BlockOperation(block: completion)
             completionBlockOp.addDependency(sync)
-            operationQueue.addOperation(completion)
+            operationQueue.addOperation(completionBlockOp)
         }
     }
     
@@ -572,7 +600,11 @@ public typealias ReadingListsController = WMFReadingListsController
         sync()
     }
     
-    @objc public func save(_ article: WMFArticle) {
+    @objc public func addArticleToDefaultReadingList(_ article: WMFArticle) throws {
+        try article.addToDefaultReadingList()
+    }
+    
+    @objc public func userSave(_ article: WMFArticle) {
         assert(Thread.isMainThread)
         do {
             let moc = dataStore.viewContext
@@ -580,21 +612,29 @@ public typealias ReadingListsController = WMFReadingListsController
             if moc.hasChanges {
                 try moc.save()
             }
+            NotificationCenter.default.post(name: WMFReadingListsController.userDidSaveOrUnsaveArticleNotification, object: article)
             sync()
         } catch let error {
-            DDLogError("Error adding article to default list: \(error)")
+            DDLogError("Error saving article: \(error)")
+        }
+    }
+
+    @objc public func userUnsave(_ article: WMFArticle) {
+        assert(Thread.isMainThread)
+        do {
+            let moc = dataStore.viewContext
+            unsave([article], in: moc)
+            if moc.hasChanges {
+                try moc.save()
+            }
+            NotificationCenter.default.post(name: WMFReadingListsController.userDidSaveOrUnsaveArticleNotification, object: article)
+            sync()
+        } catch let error {
+            DDLogError("Error unsaving article: \(error)")
         }
     }
     
-    @objc public func addArticleToDefaultReadingList(_ article: WMFArticle) throws {
-        try article.addToDefaultReadingList()
-    }
-    
-    @objc(unsaveArticle:inManagedObjectContext:) public func unsaveArticle(_ article: WMFArticle, in moc: NSManagedObjectContext) {
-        unsave([article], in: moc)
-    }
-    
-    @objc(unsaveArticles:inManagedObjectContext:) public func unsave(_ articles: [WMFArticle], in moc: NSManagedObjectContext) {
+    public func unsave(_ articles: [WMFArticle], in moc: NSManagedObjectContext) {
         do {
             let keys = articles.compactMap { $0.key }
             let entryFetchRequest: NSFetchRequest<ReadingListEntry> = ReadingListEntry.fetchRequest()
@@ -655,7 +695,8 @@ extension WMFArticle {
             return
         }
         
-        guard let defaultReadingList = moc.wmf_fetchDefaultReadingList() else {
+        guard let defaultReadingList = moc.fetchOrCreateDefaultReadingList() else {
+            assert(false, "Default reading list should exist")
             return
         }
         
@@ -673,9 +714,9 @@ extension WMFArticle {
     
     func readingListsDidChange() {
         let readingLists = self.readingLists ?? []
-        if readingLists.count == 0 && savedDate != nil {
+        if readingLists.isEmpty && savedDate != nil {
             savedDate = nil
-        } else if readingLists.count > 0 && savedDate == nil {
+        } else if !readingLists.isEmpty && savedDate == nil {
             savedDate = Date()
         }
     }
@@ -684,7 +725,7 @@ extension WMFArticle {
         guard let readingLists = self.readingLists else {
             return false
         }
-        return readingLists.filter { $0.isDefault }.count > 0
+        return !readingLists.filter { $0.isDefault }.isEmpty
     }
     
     @objc public var isOnlyInDefaultList: Bool {
@@ -706,17 +747,28 @@ extension WMFArticle {
 
 public extension NSManagedObjectContext {
     // use with caution, fetching is expensive
-    @objc func wmf_fetchDefaultReadingList() -> ReadingList? {
-        var defaultList = wmf_fetch(objectForEntityName: "ReadingList", withValue: NSNumber(value: true), forKey: "isDefault") as? ReadingList
+    @objc(wmf_fetchOrCreateDefaultReadingList)
+    @discardableResult func fetchOrCreateDefaultReadingList() -> ReadingList? {
+        assert(Thread.isMainThread, "Only create the default reading list on the view context to avoid duplicates")
+        var defaultList = defaultReadingList
         if defaultList == nil { // failsafe
-            defaultList = wmf_fetch(objectForEntityName: "ReadingList", withValue: ReadingList.defaultListCanonicalName, forKey: "canonicalName") as? ReadingList
+            defaultList = wmf_fetchOrCreate(objectForEntityName: "ReadingList", withValue: ReadingList.defaultListCanonicalName, forKey: "canonicalName") as? ReadingList
             defaultList?.isDefault = true
+            do {
+                try save()
+            } catch let error {
+                DDLogError("Error creating default reading list: \(error)")
+            }
         }
         return defaultList
     }
     
+    var defaultReadingList: ReadingList? {
+        return wmf_fetch(objectForEntityName: "ReadingList", withValue: NSNumber(value: true), forKey: "isDefault") as? ReadingList
+    }
+    
     // is sync available or is it shut down server-side
-    @objc public var wmf_isSyncRemotelyEnabled: Bool {
+    @objc var wmf_isSyncRemotelyEnabled: Bool {
         get {
             return wmf_numberValue(forKey: WMFReadingListSyncRemotelyEnabledKey)?.boolValue ?? true
         }
@@ -735,7 +787,7 @@ public extension NSManagedObjectContext {
     
     // MARK: - Reading lists config
     
-    @objc public var wmf_readingListsConfigMaxEntriesPerList: NSNumber {
+    @objc var wmf_readingListsConfigMaxEntriesPerList: NSNumber {
         get {
             return wmf_numberValue(forKey: WMFReadingListsConfigMaxEntriesPerList) ?? 5000
         }
@@ -749,7 +801,7 @@ public extension NSManagedObjectContext {
         }
     }
     
-    @objc public var wmf_readingListsConfigMaxListsPerUser: Int {
+    @objc var wmf_readingListsConfigMaxListsPerUser: Int {
         get {
             return wmf_numberValue(forKey: WMFReadingListsConfigMaxListsPerUser)?.intValue ?? 100
         }

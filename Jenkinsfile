@@ -1,3 +1,5 @@
+def IS_BETA = false
+
 pipeline {
   agent any
   
@@ -8,9 +10,11 @@ pipeline {
     stage('Test') {
       steps {
         sh '''rm -rf build/reports
+        export LANG=en_US.UTF-8
+        export LANGUAGE=en_US.UTF-8
+        export LC_ALL=en_US.UTF-8
         eval "$(rbenv init -)"
         bundle install
-        scripts/carthage_bootstrap
         bundle exec fastlane verify_pull_request
         '''
       }

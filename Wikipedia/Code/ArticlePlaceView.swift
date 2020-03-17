@@ -1,10 +1,6 @@
 import UIKit
 import WMF
-#if OSM
-import Mapbox
-#else
 import MapKit
-#endif
 
 protocol ArticlePlaceViewDelegate: NSObjectProtocol {
     func articlePlaceViewWasTapped(_ articlePlaceView: ArticlePlaceView)
@@ -365,7 +361,7 @@ class ArticlePlaceView: MapAnnotationView {
             zPosition = 2
             let countString = "\(articleCount)"
             countLabel.text = countString
-            accessibilityLabel = String.localizedStringWithFormat(WMFLocalizedString("places-accessibility-group", value:"%1$@ articles", comment:"Accessibility label for a map icon - %1$@ is replaced with the number of articles in the group\n{{Identical|Article}}"), countString)
+            accessibilityLabel = String.localizedStringWithFormat(WMFLocalizedString("places-accessibility-group", value:"%1$@ articles", comment:"Accessibility label for a map icon - %1$@ is replaced with the number of articles in the group {{Identical|Article}}"), countString)
         }
         updateDotAndImageHiddenState(with: articleCount)
     }
@@ -385,16 +381,6 @@ class ArticlePlaceView: MapAnnotationView {
         }
     }
 
-    #if OSM
-    override var annotation: MGLAnnotation? {
-        didSet {
-            guard isSetup, let articlePlace = annotation as? ArticlePlace else {
-                return
-            }
-            update(withArticlePlace: articlePlace)
-        }
-    }
-    #else
     override var annotation: MKAnnotation? {
         didSet {
             guard isSetup, let articlePlace = annotation as? ArticlePlace else {
@@ -403,7 +389,6 @@ class ArticlePlaceView: MapAnnotationView {
             update(withArticlePlace: articlePlace)
         }
     }
-    #endif
     
     override func prepareForReuse() {
         super.prepareForReuse()

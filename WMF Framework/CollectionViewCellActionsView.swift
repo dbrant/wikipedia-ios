@@ -19,8 +19,8 @@ public class Action: UIAccessibilityCustomAction {
     @objc func availableActions(at indexPath: IndexPath) -> [Action]
     @objc func didPerformAction(_ action: Action) -> Bool
     @objc func willPerformAction(_ action: Action) -> Bool
-    @objc optional func didPerformBatchEditToolbarAction(_ action: BatchEditToolbarAction) -> Bool
-    @objc     optional var availableBatchEditToolbarActions: [BatchEditToolbarAction] { get }
+    @objc optional func didPerformBatchEditToolbarAction(_ action: BatchEditToolbarAction, completion: @escaping (Bool) -> Void)
+    @objc optional var availableBatchEditToolbarActions: [BatchEditToolbarAction] { get }
 }
 
 public enum ActionType {
@@ -65,7 +65,7 @@ public class ActionsView: SizeThatFitsView, Themeable {
     
     fileprivate var activatedIndex = NSNotFound
     func expand(_ action: Action) {
-        guard let index = actions.index(of: action) else {
+        guard let index = actions.firstIndex(of: action) else {
             return
         }
         bringSubviewToFront(buttons[index])

@@ -1,11 +1,13 @@
-
 import UIKit
+import WMF
 
 @objc protocol DescriptionEditViewControllerDelegate: NSObjectProtocol {
     func descriptionEditViewControllerEditSucceeded(_ descriptionEditViewController: DescriptionEditViewController)
 }
 
-class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextViewDelegate {
+@objc class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextViewDelegate {
+    @objc public static let didPublishNotification = NSNotification.Name("DescriptionEditViewControllerDidPublishNotification")
+
     @IBOutlet private var learnMoreButton: UIButton!
     @IBOutlet private var subTitleLabel: UILabel!
     @IBOutlet private var descriptionTextView: UITextView!
@@ -19,10 +21,30 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
     @IBOutlet private var warningCharacterCountLabel: UILabel!
     private var theme = Theme.standard
 
-    @objc var article: MWKArticle? = nil
     private let showWarningIfDescriptionLongerThanCount = 90
 
     @objc var delegate: DescriptionEditViewControllerDelegate? = nil
+
+    // MARK: Event logging
+    @objc var editFunnel: EditFunnel?
+    @objc var editFunnelSource: EditFunnelSource = .unknown
+    
+    // These would be better as let's and a required initializer but it's not an opportune time to ditch the storyboard
+    // Convert these to non-force unwrapped if there's some way to ditch the storyboard or provide an initializer with the storyboard
+    var article: WMFArticle!
+    var articleURL: URL!
+    var descriptionSource: ArticleDescriptionSource!
+    var isAddingNewTitleDescription: Bool!
+    var dataStore: MWKDataStore!
+    static func with(articleURL: URL, article: WMFArticle, descriptionSource: ArticleDescriptionSource, dataStore: MWKDataStore, theme: Theme) -> DescriptionEditViewController {
+        let vc = wmf_initialViewControllerFromClassStoryboard()!
+        vc.articleURL = articleURL
+        vc.article = article
+        vc.descriptionSource = descriptionSource
+        vc.isAddingNewTitleDescription = descriptionSource == .none
+        vc.dataStore = dataStore
+        return vc
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -40,7 +62,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
         view.wmf_configureSubviewsForDynamicType()
         apply(theme: theme)
         
-        if let existingDescription = article?.entityDescription {
+        if let existingDescription = article.wikidataDescription {
             descriptionTextView.text = existingDescription
             title = WMFLocalizedString("description-edit-title", value:"Edit description", comment:"Title text for description editing screen")
         } else {
@@ -52,6 +74,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
         
         isPlaceholderLabelHidden = shouldHidePlaceholder()
         updateWarningLabelsForDescriptionCount()
+        updateFonts()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -93,12 +116,16 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
             return true
         }
         let newText = textView.text.replacingCharacters(in: range, with: text)
-        isPlaceholderLabelHidden = newText.count > 0
+        isPlaceholderLabelHidden = !newText.isEmpty
         return true
     }
     
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
+        updateFonts()
+    }
+
+    private func updateFonts() {
         subTitleLabel.attributedText = subTitleLabelAttributedString
         licenseLabel.attributedText = licenseLabelAttributedString
         loginLabel.attributedText = loginLabelAttributedString
@@ -106,7 +133,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
 
     private var subTitleLabelAttributedString: NSAttributedString {
         let formatString = WMFLocalizedString("description-edit-for-article", value: "Title description for %1$@", comment: "String describing which article title description is being edited. %1$@ is replaced with the article title")
-        return String.localizedStringWithFormat(formatString, article?.displaytitle ?? "").byAttributingHTML(with: .semiboldSubheadline, matching: traitCollection)
+        return String.localizedStringWithFormat(formatString, article.displayTitle ?? "").byAttributingHTML(with: .semiboldSubheadline, matching: traitCollection)
     }
     
     private func characterCountWarningString(for descriptionCharacterCount: Int) -> String? {
@@ -118,7 +145,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
         
         let baseAttributes: [NSAttributedString.Key: Any] = [
             .foregroundColor : theme.colors.secondaryText,
-            .font : licenseLabel.font // Grab font so we get font updated for current dynamic type size
+            .font : licenseLabel.font as Any // Grab font so we get font updated for current dynamic type size
         ]
         let linkAttributes: [NSAttributedString.Key: Any] = [
             .foregroundColor : theme.colors.link
@@ -131,7 +158,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
         
         let baseAttributes: [NSAttributedString.Key: Any] = [
             .foregroundColor : theme.colors.secondaryText,
-            .font : loginLabel.font // Grab font so we get font updated for current dynamic type size
+            .font : loginLabel.font as Any // Grab font so we get font updated for current dynamic type size
         ]
         let linkAttributes: [NSAttributedString.Key: Any] = [
             .foregroundColor : theme.colors.link
@@ -152,10 +179,10 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
     @IBAction func licenseTapped() {
         let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .alert)
         sheet.addAction(UIAlertAction(title: Licenses.localizedSaveTermsTitle, style: .default, handler: { _ in
-            self.wmf_openExternalUrl(Licenses.saveTermsURL)
+            self.navigate(to: Licenses.saveTermsURL)
         }))
         sheet.addAction(UIAlertAction(title: Licenses.localizedCCZEROTitle, style: .default, handler: { _ in
-            self.wmf_openExternalUrl(Licenses.CCZEROURL)
+            self.navigate(to: Licenses.CCZEROURL)
         }))
         sheet.addAction(UIAlertAction(title: CommonStrings.cancelActionTitle, style: .cancel, handler: nil))
         present(sheet, animated: true, completion: nil)
@@ -166,6 +193,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
     }
 
     @IBAction private func publishDescriptionButton(withSender sender: UIButton) {
+        editFunnel?.logTitleDescriptionSaveAttempt(source: editFunnelSource, isAddingNewTitleDescription: isAddingNewTitleDescription, language: articleURL.wmf_language)
         save()
     }
 
@@ -182,9 +210,8 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
         wmf_hideKeyboard()
         
         guard
-            let article = article,
-            let dataStore = article.dataStore,
-            let articleURL = article.url
+            let wikidataID = article.wikidataID,
+            let language = articleURL.wmf_language
         else {
             enableProgressiveButton(true)
             assertionFailure("Expected article, datastore or article url not found")
@@ -193,7 +220,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
 
         guard
             let descriptionToSave = descriptionTextView.normalizedWhitespaceText(),
-            descriptionToSave.count > 0
+            !descriptionToSave.isEmpty
             else {
                 descriptionTextView.text = nil
                 // manually call `textViewDidChange` since it's not called when UITextView text is changed programmatically
@@ -201,18 +228,24 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
                 return
         }
         
-        dataStore.wikidataDescriptionEditingController.publish(newWikidataDescription: descriptionToSave, from: article.descriptionSource, for: articleURL) {error in
-            let presentingVC = self.presentingViewController
+        dataStore.wikidataDescriptionEditingController.publish(newWikidataDescription: descriptionToSave, from: descriptionSource, forWikidataID: wikidataID, language: language) { error in
             DispatchQueue.main.async {
+                let presentingVC = self.presentingViewController
                 self.enableProgressiveButton(true)
-                guard let error = error else {
+                if let error = error {
+                    let apiErrorCode = (error as? WikidataAPIResult.APIError)?.code
+                    let errorText = apiErrorCode ?? "\((error as NSError).domain)-\((error as NSError).code)"
+                    self.editFunnel?.logTitleDescriptionSaveError(source: self.editFunnelSource, isAddingNewTitleDescription: self.isAddingNewTitleDescription, language: self.articleURL.wmf_language, errorText: errorText)
+                    WMFAlertManager.sharedInstance.showErrorAlert(error as NSError, sticky: true, dismissPreviousAlerts: true, tapCallBack: nil)
+                } else {
+                    self.editFunnel?.logTitleDescriptionSaved(source: self.editFunnelSource, isAddingNewTitleDescription: self.isAddingNewTitleDescription, language: self.articleURL.wmf_language)
                     self.delegate?.descriptionEditViewControllerEditSucceeded(self)
                     self.dismiss(animated: true) {
                         presentingVC?.wmf_showDescriptionPublishedPanelViewController(theme: self.theme)
+                        NotificationCenter.default.post(name: DescriptionEditViewController.didPublishNotification, object: nil)
                     }
                     return
                 }
-                WMFAlertManager.sharedInstance.showErrorAlert(error as NSError, sticky: true, dismissPreviousAlerts: true, tapCallBack: nil)
             }
         }
     }
@@ -226,7 +259,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
     }
     
     public func textViewDidChange(_ textView: UITextView) {
-        let hasText = descriptionTextView.text.count > 0
+        let hasText = !descriptionTextView.text.isEmpty
         enableProgressiveButton(hasText)
         updateWarningLabelsForDescriptionCount()
         isPlaceholderLabelHidden = hasText
@@ -237,7 +270,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
         guard viewIfLoaded != nil else {
             return
         }
-        view.backgroundColor = theme.colors.paperBackground
+        view.backgroundColor = theme.colors.midBackground
         view.tintColor = theme.colors.link
         subTitleLabel.textColor = theme.colors.secondaryText
         cc0ImageView.tintColor = theme.colors.primaryText
@@ -247,6 +280,7 @@ class DescriptionEditViewController: WMFScrollViewController, Themeable, UITextV
         warningLabel.textColor = theme.colors.descriptionWarning
         warningCharacterCountLabel.textColor = theme.colors.descriptionWarning
         publishDescriptionButton.apply(theme: theme)
+        descriptionTextView.keyboardAppearance = theme.keyboardAppearance
     }
 }
 
@@ -269,7 +303,7 @@ private extension UITextView {
     // Text with no leading and trailing space and with repeating internal spaces reduced to single spaces
     func normalizedWhitespaceText() -> String? {
         if let text = text, let whiteSpaceNormalizationRegex = whiteSpaceNormalizationRegex {
-            return whiteSpaceNormalizationRegex.stringByReplacingMatches(in: text, options: [], range: NSMakeRange(0, text.count), withTemplate: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            return whiteSpaceNormalizationRegex.stringByReplacingMatches(in: text, options: [], range: text.fullRange, withTemplate: " ").trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return text
     }

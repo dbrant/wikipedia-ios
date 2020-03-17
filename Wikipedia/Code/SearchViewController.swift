@@ -5,13 +5,13 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        navigationBar.displayType = .largeTitle
+        navigationBar.displayType = displayType
         title = CommonStrings.searchTitle
-        if !areRecentSearchesEnabled {
+        if !areRecentSearchesEnabled, shouldSetTitleViewWhenRecentSearchesAreDisabled {
             navigationItem.titleView = UIView()
         }
         navigationBar.isTitleShrinkingEnabled = true
-        navigationBar.isShadowHidingEnabled = true
+        navigationBar.isShadowHidingEnabled = false
         navigationBar.isBarHidingEnabled = false
         navigationBar.addUnderNavigationBarView(searchBarContainerView)
         view.bringSubviewToFront(resultsViewController.view)
@@ -53,6 +53,7 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
         super.viewWillTransition(to: size, with: coordinator)
         coordinator.animate(alongsideTransition: { (context) in
             self.view.setNeedsLayout()
+            self.resultsViewController.view.setNeedsLayout()
             self.view.layoutIfNeeded()
         })
     }
@@ -64,7 +65,20 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
     
     @objc var areRecentSearchesEnabled: Bool = true
     @objc var shouldBecomeFirstResponder: Bool = false
-    
+
+    var displayType: NavigationBarDisplayType = .largeTitle
+    var shouldSetSearchVisible: Bool = true
+    var shouldSetTitleViewWhenRecentSearchesAreDisabled: Bool = true
+
+    var shouldShowCancelButton: Bool = true
+    var delegatesSelection: Bool = false {
+        didSet {
+            resultsViewController.delegatesSelection = delegatesSelection
+        }
+    }
+
+    var showLanguageBar: Bool?
+
     var nonSearchAlpha: CGFloat = 1 {
         didSet {
             collectionView.alpha = nonSearchAlpha
@@ -73,20 +87,34 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
         }
     }
     
-    @objc var searchTerm: String? {
+    var searchTerm: String? {
         set {
-            searchBar.text = searchTerm
+            searchBar.text = newValue
         }
         get {
             return searchBar.text
         }
     }
-    
+
+    private var _siteURL: URL?
+
     var siteURL: URL? {
-        return searchLanguageBarViewController?.currentlySelectedSearchLanguage?.siteURL() ?? NSURL.wmf_URLWithDefaultSiteAndCurrentLocale()
+        get {
+            return _siteURL ?? searchLanguageBarViewController?.currentlySelectedSearchLanguage?.siteURL() ?? MWKLanguageLinkController.sharedInstance().appLanguage?.siteURL() ?? NSURL.wmf_URLWithDefaultSiteAndCurrentLocale()
+        }
+        set {
+            _siteURL = newValue
+        }
     }
     
-    @objc func search() {
+    @objc func searchAndMakeResultsVisibleForSearchTerm(_ term: String?, animated: Bool) {
+        shouldAnimateSearchBar = animated
+        searchTerm = term
+        search(for: searchTerm, suggested: false)
+        searchBar.becomeFirstResponder()
+    }
+
+    func search() {
         search(for: searchTerm, suggested: false)
     }
     
@@ -110,44 +138,36 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
         
         let start = Date()
         
-        AFNetworkActivityIndicatorManager.shared().incrementActivityCount()
         fakeProgressController.start()
-        
-        let commonCompletion = {
-            AFNetworkActivityIndicatorManager.shared().decrementActivityCount()
-        }
+    
         let failure = { (error: Error, type: WMFSearchType) in
             DispatchQueue.main.async {
-                commonCompletion()
                 self.fakeProgressController.stop()
                 guard searchTerm == self.searchBar.text else {
                     return
                 }
-                self.resultsViewController.wmf_showEmptyView(of: WMFEmptyViewType.noSearchResults, action: nil, theme: self.theme, frame: self.resultsViewController.view.bounds)
-                WMFAlertManager.sharedInstance.showErrorAlert(error as NSError, sticky: false, dismissPreviousAlerts: true, tapCallBack: nil)
-                self.funnel.logShowSearchError(withTypeOf: type, elapsedTime: Date().timeIntervalSince(start))
+                self.resultsViewController.emptyViewType = (error as NSError).wmf_isNetworkConnectionError() ? .noInternetConnection : .noSearchResults
+                self.resultsViewController.results = []
+                self.funnel.logShowSearchError(withTypeOf: type, elapsedTime: Date().timeIntervalSince(start), source: self.source)
             }
         }
         
         let sucess = { (results: WMFSearchResults, type: WMFSearchType) in
             DispatchQueue.main.async {
-                commonCompletion()
-                self.fakeProgressController.finish()
-                guard
-                    let resultsArray = results.results,
-                    resultsArray.count > 0
-                else {
-                    self.resultsViewController.wmf_showEmptyView(of: WMFEmptyViewType.noSearchResults, action: nil, theme: self.theme, frame: self.resultsViewController.view.bounds)
+                guard searchTerm == self.searchBar.text else {
                     return
                 }
-                self.resultsViewController.wmf_hideEmptyView()
+                NSUserActivity.wmf_makeActive(NSUserActivity.wmf_searchResultsActivitySearchSiteURL(siteURL, searchTerm: searchTerm))
+                let resultsArray = results.results ?? []
+                self.resultsViewController.emptyViewType = .noSearchResults
+                self.fakeProgressController.finish()
                 self.resultsViewController.resultsInfo = results
                 self.resultsViewController.searchSiteURL = siteURL
                 self.resultsViewController.results = resultsArray
                 guard !suggested else {
                     return
                 }
-                self.funnel.logSearchResults(withTypeOf: type, resultCount: UInt(resultsArray.count), elapsedTime: Date().timeIntervalSince(start))
+                self.funnel.logSearchResults(withTypeOf: type, resultCount: UInt(resultsArray.count), elapsedTime: Date().timeIntervalSince(start), source: self.source)
 
             }
         }
@@ -155,23 +175,15 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
         fetcher.fetchArticles(forSearchTerm: searchTerm, siteURL: siteURL, resultLimit: WMFMaxSearchResultLimit, failure: { (error) in
             failure(error, .prefix)
         }) { (results) in
-            DispatchQueue.main.async {
-                guard searchTerm == self.searchBar.text else {
-                    commonCompletion()
-                    return
-                }
-                NSUserActivity.wmf_makeActive(NSUserActivity.wmf_searchResultsActivitySearchSiteURL(siteURL, searchTerm: searchTerm))
-                sucess(results, .prefix)
-                guard let resultsArray = results.results, resultsArray.count < 12 else {
-                    return
-                }
-                self.fetcher.fetchArticles(forSearchTerm: searchTerm, siteURL: siteURL, resultLimit: WMFMaxSearchResultLimit, fullTextSearch: true, appendToPreviousResults: results, failure: { (error) in
-                    failure(error, .full)
-                }) { (results) in
-                    sucess(results, .full)
-                }
+            sucess(results, .prefix)
+            guard let resultsArray = results.results, resultsArray.count < 12 else {
+                return
             }
-            
+            self.fetcher.fetchArticles(forSearchTerm: searchTerm, siteURL: siteURL, resultLimit: WMFMaxSearchResultLimit, fullTextSearch: true, appendToPreviousResults: results, failure: { (error) in
+                failure(error, .full)
+            }) { (results) in
+                sucess(results, .full)
+            }
         }
     }
     
@@ -185,9 +197,9 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
         self.searchLanguageBarViewController = searchLanguageBarViewController
         return searchLanguageBarViewController
     }
-    
+
     private func updateLanguageBarVisibility() {
-        let showLanguageBar = UserDefaults.wmf.wmf_showSearchLanguageBar()
+        let showLanguageBar = self.showLanguageBar ?? UserDefaults.standard.wmf_showSearchLanguageBar()
         if  showLanguageBar && searchLanguageBarViewController == nil { // check this before accessing the view
             let searchLanguageBarViewController = setupLanguageBarViewController()
             addChild(searchLanguageBarViewController)
@@ -219,8 +231,8 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
     
     
     func didCancelSearch() {
+        resultsViewController.emptyViewType = .none
         resultsViewController.results = []
-        resultsViewController.wmf_hideEmptyView()
         searchBar.text = nil
         fakeProgressController.stop()
     }
@@ -275,7 +287,7 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
 
     var searchLanguageBarViewController: SearchLanguagesBarViewController?
     private var _isSearchVisible: Bool = false
-    func setSearchVisible(_ visible: Bool, animated: Bool) {
+    private func setSearchVisible(_ visible: Bool, animated: Bool) {
         _isSearchVisible = visible
         navigationBar.isAdjustingHidingFromContentInsetChangesEnabled  = false
         let completion = { (finished: Bool) in
@@ -302,7 +314,9 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
             self.navigationBar.isTopSpacingHidingEnabled = !visible
             self.navigationBar.shadowAlpha = visible ? 1 : self.searchLanguageBarViewController != nil ? 0 : self.navigationBarShadowAlpha
             self.resultsViewController.view.alpha = visible ? 1 : 0
-            self.searchBar.setShowsCancelButton(visible, animated: animated)
+            if self.shouldShowCancelButton {
+                self.searchBar.setShowsCancelButton(visible, animated: animated)
+            }
             self.view.layoutIfNeeded()
         }
         guard animated else {
@@ -354,7 +368,9 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
         guard !isAnimatingSearchBarState else {
             return false
         }
-        setSearchVisible(true, animated: shouldAnimateSearchBar)
+        if shouldSetSearchVisible {
+            setSearchVisible(true, animated: shouldAnimateSearchBar)
+        }
         return true
     }
 
@@ -371,7 +387,7 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
         
         if didClickSearchButton {
             didClickSearchButton = false
-        } else {
+        } else if shouldSetSearchVisible {
             setSearchVisible(false, animated: shouldAnimateSearchBar)
         }
         
@@ -400,6 +416,7 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
             searchBar.endEditing(true)
             didCancelSearch()
         }
+        deselectAll(animated: true)
     }
     
     @objc func makeSearchBarBecomeFirstResponder() {
@@ -518,7 +535,6 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
     }
     
     override func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        collectionView.deselectItem(at: indexPath, animated: true)
         guard let recentSearch = recentSearches?.entry(at: UInt(indexPath.item)) else {
             return
         }
@@ -538,8 +554,8 @@ class SearchViewController: ArticleCollectionViewController, UISearchBarDelegate
 extension SearchViewController: CollectionViewHeaderDelegate {
     func collectionViewHeaderButtonWasPressed(_ collectionViewHeader: CollectionViewHeader) {
         let dialog = UIAlertController(title: WMFLocalizedString("search-recent-clear-confirmation-heading", value: "Delete all recent searches?", comment: "Heading text of delete all confirmation dialog"), message: WMFLocalizedString("search-recent-clear-confirmation-sub-heading", value: "This action cannot be undone!", comment: "Sub-heading text of delete all confirmation dialog"), preferredStyle: .alert)
-        dialog.addAction(UIAlertAction(title: WMFLocalizedString("search-recent-clear-cancel", value: "Cancel", comment: "Button text for cancelling delete all action\n{{Identical|Cancel}}"), style: .cancel, handler: nil))
-        dialog.addAction(UIAlertAction(title: WMFLocalizedString("search-recent-clear-delete-all", value: "Delete All", comment: "Button text for confirming delete all action\n{{Identical|Delete all}}"), style: .destructive, handler: { (action) in
+        dialog.addAction(UIAlertAction(title: WMFLocalizedString("search-recent-clear-cancel", value: "Cancel", comment: "Button text for cancelling delete all action {{Identical|Cancel}}"), style: .cancel, handler: nil))
+        dialog.addAction(UIAlertAction(title: WMFLocalizedString("search-recent-clear-delete-all", value: "Delete All", comment: "Button text for confirming delete all action {{Identical|Delete all}}"), style: .destructive, handler: { (action) in
             self.didCancelSearch()
             self.dataStore.recentSearchList.removeAllEntries()
             self.dataStore.recentSearchList.save()
@@ -550,9 +566,13 @@ extension SearchViewController: CollectionViewHeaderDelegate {
 }
 
 extension SearchViewController: ArticleCollectionViewControllerDelegate {
-    func articleCollectionViewController(_ articleCollectionViewController: ArticleCollectionViewController, didSelectArticleWithURL: URL, at indexPath: IndexPath) {
-        funnel.logSearchResultTap(at: indexPath.item)
+    func articleCollectionViewController(_ articleCollectionViewController: ArticleCollectionViewController, didSelectArticleWith articleURL: URL, at indexPath: IndexPath) {
+        funnel.logSearchResultTap(at: indexPath.item, source: source)
         saveLastSearch()
+        guard delegatesSelection else {
+            return
+        }
+        delegate?.articleCollectionViewController(self, didSelectArticleWith: articleURL, at: indexPath)
     }
 }
 
@@ -566,7 +586,7 @@ extension SearchViewController: SearchLanguagesBarViewControllerDelegate {
 // MARK: - Event logging
 extension SearchViewController {
     private var source: String {
-        guard let navigationController = navigationController, navigationController.viewControllers.count > 0 else {
+        guard let navigationController = navigationController, !navigationController.viewControllers.isEmpty else {
             return "unknown"
         }
         let viewControllers = navigationController.viewControllers
@@ -583,5 +603,5 @@ extension SearchViewController {
 }
 
 // Keep
-// WMFLocalizedStringWithDefaultValue(@"search-did-you-mean", nil, nil, @"Did you mean %1$@?", @"Button text for searching for an alternate spelling of the search term. Parameters:\n* %1$@ - alternate spelling of the search term the user entered - ie if user types 'thunk' the API can suggest the alternate term 'think'")
+// WMFLocalizedStringWithDefaultValue(@"search-did-you-mean", nil, nil, @"Did you mean %1$@?", @"Button text for searching for an alternate spelling of the search term. Parameters: * %1$@ - alternate spelling of the search term the user entered - ie if user types 'thunk' the API can suggest the alternate term 'think'")
 

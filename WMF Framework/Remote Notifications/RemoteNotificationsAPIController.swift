@@ -1,16 +1,14 @@
-struct RemoteNotificationsAPIController {
-    private let session: Session
-
-    init(with session: Session) {
-        self.session = session
-    }
-    
+class RemoteNotificationsAPIController: Fetcher {
     // MARK: NotificationsAPI constants
 
     private struct NotificationsAPI {
-        static let scheme = "https"
-        static let host = "www.mediawiki.org"
-        static let path = "/w/api.php"
+        static let components: URLComponents = {
+            var components = URLComponents()
+            components.scheme = "https"
+            components.host = "www.mediawiki.org"
+            components.path = "/w/api.php"
+            return components
+        }()
     }
 
     // MARK: Decodable: NotificationsResult
@@ -39,6 +37,22 @@ struct RemoteNotificationsAPIController {
                 case timestamp
                 case agent
                 case affectedPageID = "title"
+            }
+
+            init(from decoder: Decoder) throws {
+                let values = try decoder.container(keyedBy: CodingKeys.self)
+                wiki = try values.decode(String.self, forKey: .wiki)
+                type = try values.decode(String.self, forKey: .type)
+                category = try values.decode(String.self, forKey: .category)
+                do {
+                    id = String(try values.decode(Int.self, forKey: .id))
+                } catch {
+                    id = try? values.decode(String.self, forKey: .id)
+                }
+                message = try values.decode(Message.self, forKey: .message)
+                timestamp = try values.decode(Timestamp.self, forKey: .timestamp)
+                agent = try values.decode(Agent.self, forKey: .agent)
+                affectedPageID = try? values.decode(AffectedPageID.self, forKey: .affectedPageID)
             }
         }
         struct Notifications: Decodable {
@@ -105,7 +119,7 @@ struct RemoteNotificationsAPIController {
     }
 
     public func getAllUnreadNotifications(from subdomains: [String], completion: @escaping (Set<NotificationsResult.Notification>?, Error?) -> Void) {
-        let completion: (NotificationsResult?, URLResponse?, Bool?, Error?) -> Void = { result, _, _, error in
+        let completion: (NotificationsResult?, URLResponse?, Error?) -> Void = { result, _, error in
             guard error == nil else {
                 completion([], error)
                 return
@@ -122,7 +136,7 @@ struct RemoteNotificationsAPIController {
         let split = notifications.chunked(into: maxNumberOfNotificationsPerRequest)
 
         split.asyncCompactMap({ (notifications, completion: @escaping (Error?) -> Void) in
-            request(Query.markAsRead(notifications: notifications), method: .post) { (result: MarkReadResult?, _, _, error) in
+            request(Query.markAsRead(notifications: notifications), method: .post) { (result: MarkReadResult?, _, error) in
                 if let error = error {
                     completion(error)
                     return
@@ -152,11 +166,20 @@ struct RemoteNotificationsAPIController {
         }
     }
 
-    private func request<T: Decodable>(_ queryParameters: Query.Parameters?, method: Session.Request.Method = .get, completion: @escaping (T?, URLResponse?, Bool?, Error?) -> Void) {
+    private func request<T: Decodable>(_ queryParameters: Query.Parameters?, method: Session.Request.Method = .get, completion: @escaping (T?, URLResponse?, Error?) -> Void) {
+        var components = NotificationsAPI.components
+        components.replacePercentEncodedQueryWithQueryParameters(queryParameters)
         if method == .get {
-            let _ = session.jsonDecodableTask(host: NotificationsAPI.host, scheme: NotificationsAPI.scheme, method: .get, path: NotificationsAPI.path, queryParameters: queryParameters, completionHandler: completion)
+            session.jsonDecodableTask(with: components.url, method: .get, completionHandler: completion)
         } else {
-            let _ = session.requestWithCSRF(type: CSRFTokenJSONDecodableOperation.self, scheme: NotificationsAPI.scheme, host: NotificationsAPI.host, path: NotificationsAPI.path, method: method, queryParameters: queryParameters, bodyEncoding: .form, tokenContext: CSRFTokenOperation.TokenContext(tokenName: "token", tokenPlacement: .body, shouldPercentEncodeToken: true), completion: completion)
+            requestMediaWikiAPIAuthToken(for: components.url, type: .csrf) { (result) in
+                switch result {
+                case .failure(let error):
+                    completion(nil, nil, error)
+                case .success(let token):
+                    self.session.jsonDecodableTask(with: components.url, method: method, bodyParameters: ["token": token], bodyEncoding: .form, completionHandler: completion)
+                }
+            }
         }
     }
 
@@ -194,29 +217,18 @@ struct RemoteNotificationsAPIController {
                     "notlimit": limit.value,
                     "notfilter": filter.rawValue]
 
-            let wikis = subdomains.compactMap { "\($0)wiki" }
-            if let listOfWikis = WMFJoinedPropertyParameters(wikis) {
-                dictionary["notwikis"] = listOfWikis
-            }
-
+            let wikis = subdomains.compactMap { $0.replacingOccurrences(of: "-", with: "_").appending("wiki") }
+            dictionary["notwikis"] = wikis.joined(separator: "|")
             return dictionary
         }
 
         static func markAsRead(notifications: [RemoteNotification]) -> Parameters? {
             let IDs = notifications.compactMap { $0.id }
             let wikis = notifications.compactMap { $0.wiki }
-            guard let listOfIDs = WMFJoinedPropertyParameters(IDs) else {
-                assertionFailure("List of IDs cannot be nil")
-                return nil
-            }
-            guard let listOfWikis = WMFJoinedPropertyParameters(wikis) else {
-                assertionFailure("List of wikis cannot be nil")
-                return nil
-            }
             return ["action": "echomarkread",
                     "format": "json",
-                    "wikis": listOfWikis,
-                    "list": listOfIDs]
+                    "wikis": wikis.joined(separator: "|"),
+                    "list":  IDs.joined(separator: "|")]
         }
     }
 }
@@ -229,6 +241,6 @@ extension RemoteNotificationsAPIController.ResultError: LocalizedError {
 
 extension RemoteNotificationsAPIController {
     var isAuthenticated: Bool {
-        return session.hasValidCentralAuthCookies(for: .mediawiki)
+        return session.hasValidCentralAuthCookies(for: Configuration.current.mediaWikiCookieDomain)
     }
 }

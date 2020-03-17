@@ -18,7 +18,7 @@ public class EventLoggingService : NSObject, URLSessionDelegate {
     
     private var pruningAge: TimeInterval = 60*60*24*30 // 30 days
     private var sendOnWWANThreshold: TimeInterval = 24 * 60 * 60
-    private var postBatchSize = 10
+    private var postBatchSize = 32
     private var postTimeout: TimeInterval = 60*2 // 2 minutes
     private var postInterval: TimeInterval = 60*10 // 10 minutes
     
@@ -104,6 +104,12 @@ public class EventLoggingService : NSObject, URLSessionDelegate {
         self.persistentStoreCoordinator = psc
         self.managedObjectContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
         self.managedObjectContext.persistentStoreCoordinator = psc
+        super.init()
+        if self.isEnabled {
+            self.session.xWMFUUID = appInstallID
+        } else {
+            self.session.xWMFUUID = nil
+        }
     }
 
     
@@ -131,9 +137,7 @@ public class EventLoggingService : NSObject, URLSessionDelegate {
     @objc
     private func tryPostEvents(_ completion: (() -> Void)? = nil) {
         let operation = AsyncBlockOperation { (operation) in
-            let moc = self.managedObjectContext
-            moc.perform {
-
+            self.perform { moc in
                 let pruneFetch = NSFetchRequest<NSFetchRequestResult>(entityName: "WMFEventRecord")
                 pruneFetch.returnsObjectsAsFaults = false
                 
@@ -181,7 +185,7 @@ public class EventLoggingService : NSObject, URLSessionDelegate {
                     }
                 }
 
-                if eventRecords.count > 0 {
+                if !eventRecords.isEmpty {
                     self.postEvents(eventRecords, onlyWiFi: wifiOnly, completion: {
                         operation.finish()
                     })
@@ -202,10 +206,6 @@ public class EventLoggingService : NSObject, URLSessionDelegate {
     private func perform(_ block: @escaping (_ moc: NSManagedObjectContext) -> Void) {
         let moc = self.managedObjectContext
         moc.perform {
-            let task = Background.manager.beginTask()
-            defer {
-                Background.manager.endTask(task)
-            }
             block(moc)
         }
     }
@@ -213,10 +213,6 @@ public class EventLoggingService : NSObject, URLSessionDelegate {
     private func performAndWait(_ block: (_ moc: NSManagedObjectContext) -> Void) {
         let moc = self.managedObjectContext
         moc.performAndWait {
-            let task = Background.manager.beginTask()
-            defer {
-                Background.manager.endTask(task)
-            }
             block(moc)
         }
     }
@@ -276,13 +272,11 @@ public class EventLoggingService : NSObject, URLSessionDelegate {
                 }
                 if (completedRecordIDs.count == eventRecords.count) {
                     self.managedObjectContext.wmf_setValue(NSNumber(value: CFAbsoluteTimeGetCurrent()), forKey: Key.lastSuccessfulPost)
-                    self.save(moc)
-                    DDLogDebug("EventLoggingService: All records succeeded, attempting to post more")
-                    self.tryPostEvents()
+                    DDLogDebug("EventLoggingService: All records succeeded")
                 } else {
-                    self.save(moc)
-                    DDLogDebug("EventLoggingService: Some records failed, waiting to post more")
+                    DDLogDebug("EventLoggingService: Some records failed")
                 }
+                self.save(moc)
                 completion()
             }
         }
@@ -369,11 +363,11 @@ public class EventLoggingService : NSObject, URLSessionDelegate {
                 return
             }
             
-            if let legacyValue = UserDefaults.wmf.object(forKey: key) as? NSCoding {
+            if let legacyValue = UserDefaults.standard.object(forKey: key) as? NSCoding {
                 value = legacyValue
                 libraryValueCache[key] = legacyValue
                 managedObjectContext.wmf_setValue(legacyValue, forKey: key)
-                UserDefaults.wmf.removeObject(forKey: key)
+                UserDefaults.standard.removeObject(forKey: key)
                 save(moc)
             }
         }
@@ -405,6 +399,11 @@ public class EventLoggingService : NSObject, URLSessionDelegate {
         }
         set {
             setLibraryValue(NSNumber(booleanLiteral: newValue), for: Key.isEnabled)
+            if newValue {
+                session.xWMFUUID = appInstallID
+            } else {
+                session.xWMFUUID = nil
+            }
         }
     }
     

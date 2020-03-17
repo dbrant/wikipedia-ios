@@ -139,7 +139,7 @@ class CollectionViewUpdater<T: NSFetchRequestResult>: NSObject, NSFetchedResults
             return
         }
         
-        guard previousSectionCounts.count > 0 && didInsertFirstSection && sectionDelta > 0 else {
+        guard !previousSectionCounts.isEmpty && didInsertFirstSection && sectionDelta > 0 else {
             if didOnlyChangeItems {
                 columnarLayout.animateItems = true
                 columnarLayout.slideInNewContentFromTheTop = false
@@ -200,6 +200,8 @@ class CollectionViewUpdater<T: NSFetchRequestResult>: NSObject, NSFetchedResults
                         assert(false, "unhandled update")
                         DDLogDebug("WMFBU unhandled update: \(objectChange)")
                     }
+                @unknown default:
+                    break
                 }
             }
             

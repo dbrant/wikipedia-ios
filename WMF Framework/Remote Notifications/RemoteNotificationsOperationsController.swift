@@ -12,8 +12,8 @@ class RemoteNotificationsOperationsController: NSObject {
         }
     }
 
-    required init(with session: Session) {
-        apiController = RemoteNotificationsAPIController(with: session)
+    required init(session: Session, configuration: Configuration) {
+        apiController = RemoteNotificationsAPIController(session: session, configuration: configuration)
         var modelControllerInitializationError: Error?
         modelController = RemoteNotificationsModelController(&modelControllerInitializationError)
         deadlineController = RemoteNotificationsOperationsDeadlineController(with: modelController?.managedObjectContext)
@@ -181,15 +181,5 @@ final class RemoteNotificationsOperationsDeadlineController {
 
     public func resetDeadline() {
         startTime = now
-    }
-}
-
-private extension NSManagedObjectContext {
-    func performWaitAndReturn<T>(_ block: () -> T?) -> T? {
-        var result: T? = nil
-        performAndWait {
-            result = block()
-        }
-        return result
     }
 }

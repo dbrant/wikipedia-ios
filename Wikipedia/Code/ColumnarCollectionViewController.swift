@@ -1,7 +1,7 @@
 import UIKit
 import WMF
 
-class ColumnarCollectionViewController: ViewController, ColumnarCollectionViewLayoutDelegate, UICollectionViewDataSourcePrefetching, CollectionViewFooterDelegate {
+class ColumnarCollectionViewController: ViewController, ColumnarCollectionViewLayoutDelegate, UICollectionViewDataSourcePrefetching, CollectionViewFooterDelegate, HintPresenting {
     
     enum HeaderStyle {
         case sections
@@ -97,15 +97,16 @@ class ColumnarCollectionViewController: ViewController, ColumnarCollectionViewLa
             self.layout.invalidateLayout(with: invalidationContext)
         })
     }
+
+    // MARK: HintPresenting
+
+    var hintController: HintController?
     
     // MARK: - UIScrollViewDelegate
     
     override func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         super.scrollViewWillBeginDragging(scrollView)
-        guard let hintPresenter = self as? ReadingListHintPresenter else {
-            return
-        }
-        hintPresenter.readingListHintController?.scrollViewWillBeginDragging()
+        hintController?.dismissHintDueToUserInteraction()
     }
     
     // MARK: - Refresh Control
@@ -114,6 +115,7 @@ class ColumnarCollectionViewController: ViewController, ColumnarCollectionViewLa
         didSet {
             if isRefreshControlEnabled {
                 let refreshControl = UIRefreshControl()
+                refreshControl.tintColor = theme.colors.refreshControlTint
                 refreshControl.layer.zPosition = -100
                 refreshControl.addTarget(self, action: #selector(refreshControlActivated), for: .valueChanged)
                 collectionView.refreshControl = refreshControl
@@ -147,6 +149,7 @@ class ColumnarCollectionViewController: ViewController, ColumnarCollectionViewLa
     var emptyViewType: WMFEmptyViewType = .none
     
     final var isEmpty = true
+    final var showingEmptyViewType: WMFEmptyViewType?
     final func updateEmptyState() {
         let sectionCount = numberOfSections(in: collectionView)
         
@@ -158,7 +161,7 @@ class ColumnarCollectionViewController: ViewController, ColumnarCollectionViewLa
             }
         }
         
-        guard isCurrentlyEmpty != isEmpty else {
+        guard isCurrentlyEmpty != isEmpty || showingEmptyViewType != emptyViewType else {
             return
         }
         
@@ -173,13 +176,16 @@ class ColumnarCollectionViewController: ViewController, ColumnarCollectionViewLa
         return frame
     }
 
+    open weak var emptyViewTarget: AnyObject?
     open var emptyViewAction: Selector?
     
     open func isEmptyDidChange() {
         if isEmpty {
-            wmf_showEmptyView(of: emptyViewType, action: emptyViewAction, theme: theme, frame: emptyViewFrame)
+            wmf_showEmptyView(of: emptyViewType, target: emptyViewTarget, action: emptyViewAction, theme: theme, frame: emptyViewFrame)
+            showingEmptyViewType = emptyViewType
         } else {
             wmf_hideEmptyView()
+            showingEmptyViewType = nil
         }
     }
     
@@ -219,10 +225,10 @@ class ColumnarCollectionViewController: ViewController, ColumnarCollectionViewLa
                 continue
             }
             let imageURLsToPrefetch = imageURLs.subtracting(imageURLsCurrentlyBeingPrefetched)
-            let imageController = ImageController.shared
+            let imageController = ImageCacheController.shared
             imageURLsCurrentlyBeingPrefetched.formUnion(imageURLsToPrefetch)
             for imageURL in imageURLsToPrefetch {
-                imageController.prefetch(withURL: imageURL) {
+                imageController?.prefetch(withURL: imageURL) {
                     self.imageURLsCurrentlyBeingPrefetched.remove(imageURL)
                 }
             }
@@ -374,45 +380,13 @@ extension ColumnarCollectionViewController: UICollectionViewDataSource {
 }
 
 extension ColumnarCollectionViewController: UICollectionViewDelegate {
-
-}
-
-// MARK: - WMFArticlePreviewingActionsDelegate
-extension ColumnarCollectionViewController: WMFArticlePreviewingActionsDelegate {
-    func saveArticlePreviewActionSelected(withArticleController articleController: WMFArticleViewController, didSave: Bool, articleURL: URL) {
-        if let hintPresenter = self as? ReadingListHintPresenter {
-            hintPresenter.readingListHintController?.didSave(didSave, articleURL: articleURL, theme: theme)
-        }
-        if let eventLoggingEventValuesProviding = self as? EventLoggingEventValuesProviding {
-            if didSave {
-                ReadingListsFunnel.shared.logSave(category: eventLoggingEventValuesProviding.eventLoggingCategory, label: eventLoggingEventValuesProviding.eventLoggingLabel, articleURL: articleURL)
-            } else {
-                ReadingListsFunnel.shared.logUnsave(category: eventLoggingEventValuesProviding.eventLoggingCategory, label: eventLoggingEventValuesProviding.eventLoggingLabel, articleURL: articleURL)
-            }
-        }
-    }
     
-    func readMoreArticlePreviewActionSelected(withArticleController articleController: WMFArticleViewController) {
-        articleController.wmf_removePeekableChildViewControllers()
-        wmf_push(articleController, animated: true)
-    }
-    
-    func shareArticlePreviewActionSelected(withArticleController articleController: WMFArticleViewController, shareActivityController: UIActivityViewController) {
-        articleController.wmf_removePeekableChildViewControllers()
-        present(shareActivityController, animated: true, completion: nil)
-    }
-    
-    func viewOnMapArticlePreviewActionSelected(withArticleController articleController: WMFArticleViewController) {
-        articleController.wmf_removePeekableChildViewControllers()
-        let placesURL = NSUserActivity.wmf_URLForActivity(of: .places, withArticleURL: articleController.articleURL)
-        UIApplication.shared.open(placesURL, options: [:], completionHandler: nil)
-    }
 }
 
 extension ColumnarCollectionViewController {
-    func wmf_push(_ viewController: UIViewController, context: FeedFunnelContext?, index: Int?, animated: Bool) {
+    func push(_ viewController: UIViewController, context: FeedFunnelContext?, index: Int?, animated: Bool) {
         logFeedEventIfNeeded(for: context, index: index, pushedViewController: viewController)
-        wmf_push(viewController, animated: animated)
+        push(viewController, animated: animated)
     }
 
     func logFeedEventIfNeeded(for context: FeedFunnelContext?, index: Int?, pushedViewController: UIViewController) {
@@ -423,7 +397,7 @@ extension ColumnarCollectionViewController {
         let isPushedFromExplore = viewControllers.count == 1 && isFirstViewControllerExplore
         let isPushedFromExploreDetail = viewControllers.count == 2 && isFirstViewControllerExplore
         if isPushedFromExplore {
-            let isArticle = pushedViewController is WMFArticleViewController
+            let isArticle = pushedViewController is ArticleViewController
             if isArticle {
                 FeedFunnel.shared.logFeedCardReadingStarted(for: context, index: index)
             } else {

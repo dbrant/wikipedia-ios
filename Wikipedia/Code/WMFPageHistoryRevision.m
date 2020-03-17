@@ -6,7 +6,7 @@
 @implementation WMFPageHistoryRevision
 
 - (instancetype)initWithDictionary:(NSDictionary *)dictionaryValue error:(NSError *__autoreleasing *)error {
-    NSDictionary *defaults = @{ WMF_SAFE_KEYPATH(WMFPageHistoryRevision.new, isAnon): @NO };
+    NSDictionary *defaults = @{ WMF_SAFE_KEYPATH(WMFPageHistoryRevision.new, isAnon): @NO, WMF_SAFE_KEYPATH(WMFPageHistoryRevision.new, isMinor): @NO };
     dictionaryValue = [defaults mtl_dictionaryByAddingEntriesFromDictionary:dictionaryValue];
     return [super initWithDictionary:dictionaryValue error:error];
 }
@@ -20,6 +20,7 @@
         WMF_SAFE_KEYPATH(WMFPageHistoryRevision.new, revisionID): @"revid",
         WMF_SAFE_KEYPATH(WMFPageHistoryRevision.new, articleSizeAtRevision): @"size",
         WMF_SAFE_KEYPATH(WMFPageHistoryRevision.new, isAnon): @"anon",
+        WMF_SAFE_KEYPATH(WMFPageHistoryRevision.new, isMinor): @"minor",
     };
 }
 
@@ -35,8 +36,14 @@
     }];
 }
 
++ (NSValueTransformer *)isMinorJSONTransformer {
+    return [MTLValueTransformer transformerUsingForwardBlock:^(NSString *value, BOOL *success, NSError *__autoreleasing *error) {
+        return @YES;
+    }];
+}
+
 - (NSInteger)daysFromToday {
-    NSCalendar *calendar = [NSCalendar wmf_gregorianCalendar];
+    NSCalendar *calendar = [NSCalendar wmf_utcGregorianCalendar];
     NSInteger days = [calendar wmf_daysFromDate:self.revisionDate toDate:[NSDate date]];
     return days;
 }

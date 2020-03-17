@@ -1,35 +1,9 @@
 #import "WMFOnThisDayEventsFetcher.h"
 #import "WMFFeedOnThisDayEvent.h"
 #import <WMF/WMF-Swift.h>
-
-@interface WMFOnThisDayEventsFetcher ()
-
-@property (nonatomic, strong) AFHTTPSessionManager *operationManager;
-
-@end
+#import <WMF/WMFLegacySerializer.h>
 
 @implementation WMFOnThisDayEventsFetcher
-
-- (instancetype)init {
-    self = [super init];
-    if (self) {
-        AFHTTPSessionManager *manager = [AFHTTPSessionManager wmf_createIgnoreCacheManager];
-        manager.responseSerializer = [WMFMantleJSONResponseSerializer serializerForArrayOf:[WMFFeedOnThisDayEvent class] fromKeypath:@"events" emptyValueForJSONKeypathAllowed:NO];
-        NSMutableIndexSet *set = [manager.responseSerializer.acceptableStatusCodes mutableCopy];
-        [set removeIndex:304];
-        manager.responseSerializer.acceptableStatusCodes = set;
-        self.operationManager = manager;
-    }
-    return self;
-}
-
-- (void)dealloc {
-    [self.operationManager invalidateSessionCancelingTasks:YES];
-}
-
-- (BOOL)isFetching {
-    return [[self.operationManager operationQueue] operationCount] > 0;
-}
 
 + (NSSet<NSString *> *)supportedLanguages {
     static dispatch_once_t onceToken;
@@ -43,36 +17,35 @@
 - (void)fetchOnThisDayEventsForURL:(NSURL *)siteURL month:(NSUInteger)month day:(NSUInteger)day failure:(WMFErrorHandler)failure success:(void (^)(NSArray<WMFFeedOnThisDayEvent *> *announcements))success {
     NSParameterAssert(siteURL);
     if (siteURL == nil || siteURL.wmf_language == nil || ![[WMFOnThisDayEventsFetcher supportedLanguages] containsObject:siteURL.wmf_language] || month < 1 || day < 1) {
-        NSError *error = [NSError wmf_errorWithType:WMFErrorTypeInvalidRequestParameters
-                                           userInfo:nil];
+        NSError *error = [WMFFetcher invalidParametersError];
         failure(error);
         return;
     }
 
-    NSURL *url = [siteURL wmf_URLWithPath:[NSString stringWithFormat:@"/api/rest_v1/feed/onthisday/events/%lu/%lu", (unsigned long)month, (unsigned long)day] isMobile:NO];
-
-    [self.operationManager GET:[url absoluteString]
-        parameters:nil
-        progress:NULL
-        success:^(NSURLSessionDataTask *operation, NSArray<WMFFeedOnThisDayEvent *> *responseObject) {
-            if (![responseObject isKindOfClass:[NSArray class]]) {
-                failure([NSError wmf_errorWithType:WMFErrorTypeUnexpectedResponseType
-                                          userInfo:nil]);
-                return;
-            }
-
-            WMFFeedOnThisDayEvent *event = responseObject.firstObject;
-            if (![event isKindOfClass:[WMFFeedOnThisDayEvent class]]) {
-                failure([NSError wmf_errorWithType:WMFErrorTypeUnexpectedResponseType
-                                          userInfo:nil]);
-                return;
-            }
-
-            success(responseObject);
-        }
-        failure:^(NSURLSessionDataTask *operation, NSError *error) {
+    NSString *monthString = [NSString stringWithFormat:@"%lu", (unsigned long)month];
+    NSString *dayString = [NSString stringWithFormat:@"%lu", (unsigned long)day];
+    NSArray<NSString *> *path = @[@"feed", @"onthisday", @"events", monthString, dayString];
+    NSURLComponents *components = [self.configuration wikipediaMobileAppsServicesAPIURLComponentsForHost:siteURL.host appendingPathComponents:path];
+    [self.session getJSONDictionaryFromURL:components.URL ignoreCache:YES completionHandler:^(NSDictionary<NSString *,id> * _Nullable result, NSHTTPURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (error) {
             failure(error);
-        }];
+            return;
+        }
+        
+        if (response.statusCode == 304) {
+            failure([WMFFetcher noNewDataError]);
+            return;
+        }
+        
+        NSError *serializerError = nil;
+        NSArray *events = [WMFLegacySerializer modelsOfClass:[WMFFeedOnThisDayEvent class] fromArrayForKeyPath:@"events" inJSONDictionary:result error:&serializerError];
+        if (serializerError) {
+            failure(serializerError);
+            return;
+        }
+        
+        success(events);
+    }];
 }
 
 @end

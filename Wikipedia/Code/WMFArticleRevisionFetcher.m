@@ -1,61 +1,51 @@
 #import "WMFArticleRevisionFetcher.h"
-@import WMF.AFHTTPSessionManager_WMFConfig;
-@import WMF.WMFMantleJSONResponseSerializer;
-@import WMF.WMFNetworkUtilities;
 @import WMF.NSURL_WMFLinkParsing;
 #import "WMFRevisionQueryResults.h"
 #import "WMFArticleRevision.h"
 #import "Wikipedia-Swift.h"
 
-@interface WMFArticleRevisionFetcher ()
-@property (nonatomic, strong) AFHTTPSessionManager *requestManager;
-@end
-
 @implementation WMFArticleRevisionFetcher
-
-- (instancetype)init {
-    self = [super init];
-    if (self) {
-        self.requestManager = [AFHTTPSessionManager wmf_createDefaultManager];
-        self.requestManager.responseSerializer =
-            [WMFMantleJSONResponseSerializer serializerForArrayOf:[WMFRevisionQueryResults class] fromKeypath:@"query.pages" emptyValueForJSONKeypathAllowed:NO];
-    }
-    return self;
-}
-
-- (void)dealloc {
-    [self.requestManager invalidateSessionCancelingTasks:YES];
-}
-
-- (void)setTimeoutInterval:(NSTimeInterval)timeoutInterval {
-    self.requestManager.requestSerializer.timeoutInterval = timeoutInterval;
-}
 
 - (NSURLSessionTask *)fetchLatestRevisionsForArticleURL:(NSURL *)articleURL
                                             resultLimit:(NSUInteger)numberOfResults
-                                     endingWithRevision:(NSUInteger)revisionId
+                                   startingWithRevision:(NSNumber *)startRevisionId
+                                     endingWithRevision:(NSNumber *)endRevisionId
                                                 failure:(WMFErrorHandler)failure
                                                 success:(WMFSuccessIdHandler)success {
-    return [self.requestManager wmf_apiZeroSafeGETWithURL:articleURL
-        parameters:@{
-            @"format": @"json",
-            @"continue": @"",
-            @"formatversion": @2,
-            @"action": @"query",
-            @"prop": @"revisions",
-            @"redirects": @1,
-            @"titles": articleURL.wmf_title,
-            @"rvlimit": @(numberOfResults),
-            @"rvendid": @(revisionId),
-            @"rvprop": WMFJoinedPropertyParameters(@[@"ids", @"size", @"flags"]) //,
-            //@"pilicense": @"any"
-        }
-        success:^(NSURLSessionDataTask *operation, id responseObject) {
-            success([responseObject firstObject]);
-        }
-        failure:^(NSURLSessionDataTask *operation, NSError *error) {
+    
+    NSMutableDictionary *parameters = [[NSMutableDictionary alloc] initWithDictionary:@{
+                                                                                        @"format": @"json",
+                                                                                        @"continue": @"",
+                                                                                        @"formatversion": @2,
+                                                                                        @"action": @"query",
+                                                                                        @"prop": @"revisions",
+                                                                                        @"redirects": @1,
+                                                                                        @"titles": articleURL.wmf_title,
+                                                                                        @"rvlimit": @(numberOfResults),
+                                                                                        @"rvprop": [@[@"ids", @"size", @"flags"] componentsJoinedByString:@"|"],
+                                                                                        //@"pilicense": @"any"
+                                                                                        }];
+    
+    if (startRevisionId != nil) {
+        parameters[@"rvstartid"] = startRevisionId;
+    }
+    
+    if (endRevisionId != nil) {
+        parameters[@"rvendid"] = endRevisionId;
+    }
+    return [self performMediaWikiAPIGETForURL:articleURL withQueryParameters:[parameters copy] completionHandler:^(NSDictionary<NSString *,id> * _Nullable result, NSHTTPURLResponse * _Nullable response, NSError * _Nullable error) {
+        if (error) {
             failure(error);
-        }];
+            return;
+        }
+        NSError *mantleError = nil;
+        NSArray *results = [WMFLegacySerializer modelsOfClass:[WMFRevisionQueryResults class] fromArrayForKeyPath:@"query.pages"  inJSONDictionary:result error:&mantleError];
+        if (mantleError) {
+            failure(mantleError);
+            return;
+        }
+        success([results firstObject]);
+    }];
 }
 
 @end

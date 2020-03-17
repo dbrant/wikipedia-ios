@@ -12,14 +12,44 @@ public protocol WMFWelcomeNavigationDelegate: class{
     func showNextWelcomePage(_ sender: AnyObject)
 }
 
-class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate, WMFWelcomeNavigationDelegate {
+class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDataSource, UIPageViewControllerDelegate, WMFWelcomeNavigationDelegate, Themeable {
 
     private var theme = Theme.standard
+    
+    func apply(theme: Theme) {
+        self.theme = theme
+        guard viewIfLoaded != nil else {
+            return
+        }
+        nextButton.setTitleColor(theme.colors.link, for: .normal)
+        nextButton.setTitleColor(theme.colors.disabledText, for: .disabled)
+        nextButton.setTitleColor(theme.colors.link, for: .highlighted)
+        themeToPageControl()
+        skipButton.setTitleColor(theme.colors.unselected, for: .normal)
+
+        for child in pageControllers {
+            guard let themeable = child as? Themeable else {
+                continue
+            }
+            themeable.apply(theme: theme)
+        }
+    }
+
+    private func themeToPageControl() {
+        guard
+            viewIfLoaded != nil,
+            view.window != nil
+        else {
+            return
+        }
+        pageControl?.pageIndicatorTintColor = theme.colors.pageIndicator
+        pageControl?.currentPageIndicatorTintColor = theme.colors.pageIndicatorCurrent
+    }
     
     @objc var completionBlock: (() -> Void)?
     
     func showNextWelcomePage(_ sender: AnyObject){
-        guard let sender = sender as? UIViewController, let index = pageControllers.index(of: sender), index != pageControllers.count - 1 else {
+        guard let sender = sender as? UIViewController, let index = pageControllers.firstIndex(of: sender), index != pageControllers.count - 1 else {
             dismiss(animated: true, completion:completionBlock)
             return
         }
@@ -49,6 +79,7 @@ class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDa
         let controller = WMFWelcomeContainerViewController.wmf_viewControllerFromWelcomeStoryboard()
         controller.welcomeNavigationDelegate = self
         controller.welcomePageType = type
+        controller.apply(theme: theme)
         return controller
     }
     
@@ -86,6 +117,8 @@ class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDa
         if let scrollView = view.wmf_firstSubviewOfType(UIScrollView.self) {
             scrollView.clipsToBounds = false
         }
+        updateFonts()
+        apply(theme: theme)
     }
     
     private func configureAndAddNextButton(){
@@ -95,9 +128,7 @@ class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDa
         nextButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         nextButton.titleLabel?.numberOfLines = 1
         nextButton.setTitle(CommonStrings.nextTitle, for: .normal)
-        nextButton.setTitleColor(theme.colors.link, for: .normal)
-        nextButton.setTitleColor(theme.colors.disabledText, for: .disabled)
-        nextButton.setTitleColor(theme.colors.link, for: .highlighted)
+
         view.addSubview(nextButton)
         nextButton.heightAnchor.constraint(equalToConstant: buttonHeight).isActive = true
         view.addConstraint(NSLayoutConstraint(item: nextButton, attribute: .bottom, relatedBy: .equal, toItem: view, attribute: .bottom, multiplier: 1, constant: 0))
@@ -116,7 +147,6 @@ class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDa
         skipButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         skipButton.titleLabel?.numberOfLines = 1
         skipButton.setTitle(CommonStrings.skipTitle, for: .normal)
-        skipButton.setTitleColor(UIColor(0xA2A9B1), for: .normal)
         view.addSubview(skipButton)
         skipButton.heightAnchor.constraint(equalToConstant: buttonHeight).isActive = true
         view.addConstraint(NSLayoutConstraint(item: skipButton, attribute: .bottom, relatedBy: .equal, toItem: view, attribute: .bottom, multiplier: 1, constant: 0))
@@ -130,6 +160,10 @@ class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDa
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
+        updateFonts()
+    }
+
+    private func updateFonts() {
         skipButton.titleLabel?.font = UIFont.wmf_font(.semiboldFootnote, compatibleWithTraitCollection: traitCollection)
         nextButton.titleLabel?.font = UIFont.wmf_font(.semiboldFootnote, compatibleWithTraitCollection: traitCollection)
     }
@@ -138,8 +172,7 @@ class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDa
         super.viewDidAppear(animated)
         if let pageControl = pageControl {
             pageControl.isUserInteractionEnabled = false
-            pageControl.pageIndicatorTintColor = theme.colors.disabledLink
-            pageControl.currentPageIndicatorTintColor = theme.colors.link
+            themeToPageControl()
         }
     }
 
@@ -163,21 +196,21 @@ class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDa
     }
     
     func presentationIndex(for pageViewController: UIPageViewController) -> Int {
-        guard let viewControllers = viewControllers, let currentVC = viewControllers.first, let presentationIndex = pageControllers.index(of: currentVC) else {
+        guard let viewControllers = viewControllers, let currentVC = viewControllers.first, let presentationIndex = pageControllers.firstIndex(of: currentVC) else {
             return 0
         }
         return presentationIndex
     }
     
     func pageViewController(_ pageViewController: UIPageViewController, viewControllerAfter viewController: UIViewController) -> UIViewController? {
-        guard let index = pageControllers.index(of: viewController) else {
+        guard let index = pageControllers.firstIndex(of: viewController) else {
             return nil
         }
         return index >= pageControllers.count - 1 ? nil : pageControllers[index + 1]
     }
     
     func pageViewController(_ pageViewController: UIPageViewController, viewControllerBefore viewController: UIViewController) -> UIViewController? {
-        guard let index = pageControllers.index(of: viewController) else {
+        guard let index = pageControllers.firstIndex(of: viewController) else {
             return nil
         }
         return index == 0 ? nil : pageControllers[index - 1]
@@ -190,7 +223,7 @@ class WMFWelcomePageViewController: UIPageViewController, UIPageViewControllerDa
     }
 
     func hideButtons(for vc: UIViewController){
-        let isLastPage = pageControllers.index(of: vc) == pageControllers.count - 1
+        let isLastPage = pageControllers.firstIndex(of: vc) == pageControllers.count - 1
         let newAlpha:CGFloat = isLastPage ? 0.0 : 1.0
         let alphaChanged = pageControl?.alpha != newAlpha
         nextButton.isEnabled = !isLastPage // Gray out the next button when transitioning to last page (per design)

@@ -4,7 +4,7 @@ import UserNotificationsUI
 import WMF
 import CocoaLumberjackSwift
 
-class WMFInTheNewsNotificationViewController: UIViewController, UNNotificationContentExtension {
+class WMFInTheNewsNotificationViewController: ExtensionViewController, UNNotificationContentExtension {
     @IBOutlet weak var imageView: UIImageView!
 
     @IBOutlet weak var statusView: UIVisualEffectView!
@@ -22,8 +22,27 @@ class WMFInTheNewsNotificationViewController: UIViewController, UNNotificationCo
     @IBOutlet weak var articleTitleLabelLeadingMargin: NSLayoutConstraint!
     @IBOutlet weak var summaryLabelLeadingMargin: NSLayoutConstraint!
     
+    @IBOutlet var separators: [UIView]!
+    
     var marginWidthForVisibleImageView: CGFloat = 0
     
+    override func apply(theme: Theme) {
+        super.apply(theme: theme)
+        guard viewIfLoaded != nil else {
+            return
+        }
+        summaryLabel.textColor = theme.colors.primaryText
+        articleTitleLabel.textColor = theme.colors.primaryText
+        articleSubtitleLabel.textColor = theme.colors.secondaryText
+        statusLabel.textColor = theme.colors.accent
+        readerCountLabel.textColor = theme.colors.accent
+        timeLabel.textColor = theme.colors.secondaryText
+        sparklineView.apply(theme: theme)
+        for separator in separators {
+            separator.backgroundColor = theme.colors.border
+        }
+    }
+
     var articleURL: URL?
     
     var imageViewHidden = false {
@@ -59,7 +78,7 @@ class WMFInTheNewsNotificationViewController: UIViewController, UNNotificationCo
                 let html = newsStory.storyHTML  {
                 let font = UIFont.preferredFont(forTextStyle: UIFont.TextStyle.footnote, compatibleWith: nil)
                 let linkFont = UIFont.boldSystemFont(ofSize: font.pointSize)
-                let attributedString = html.wmf_attributedStringFromHTML(with: font, boldFont: linkFont, italicFont: font, boldItalicFont: linkFont, withAdditionalBoldingForMatchingSubstring:nil, boldLinks: true).wmf_trim()
+                let attributedString = html.wmf_attributedStringFromHTML(with: font, boldFont: linkFont, italicFont: font, boldItalicFont: linkFont, color:nil, linkColor:nil, handlingLists: false, handlingSuperSubscripts: false, withAdditionalBoldingForMatchingSubstring:nil, tagMapping: ["a":"b"], additionalTagAttributes:nil)
                 summaryLabel.attributedText = attributedString
             }
         } catch let error as NSError {
@@ -88,7 +107,7 @@ class WMFInTheNewsNotificationViewController: UIViewController, UNNotificationCo
             return
         }
         
-        guard let viewCounts = viewCountDict.wmf_pageViewsSortedByDate, viewCounts.count > 0 else {
+        guard let viewCounts = viewCountDict.wmf_pageViewsSortedByDate, !viewCounts.isEmpty else {
             readerCountLabel.text = ""
             return
         }
@@ -117,15 +136,11 @@ class WMFInTheNewsNotificationViewController: UIViewController, UNNotificationCo
         case WMFInTheNewsNotificationSaveForLaterActionIdentifier:
             statusView.isHidden = false
             statusLabel.text = WMFLocalizedString("status-saving-for-later", value:"Saving for later...", comment: "Indicates to the user that the article is being saved for later")
-            if let dataStore = SessionSingleton.sharedInstance().dataStore {
-                dataStore.savedPageList.addSavedPage(with: articleURL)
-                self.statusView.isHidden = false
-                self.statusLabel.text = WMFLocalizedString("status-saved-for-later", value:"Saved for later", comment: "Indicates to the user that the article has been saved for later")
-                completion(.dismiss)
-            } else {
-                completion(.dismiss)
-                break
-            }
+            let dataStore = MWKDataStore.shared()
+            dataStore.savedPageList.addSavedPage(with: articleURL)
+            self.statusView.isHidden = false
+            self.statusLabel.text = WMFLocalizedString("status-saved-for-later", value:"Saved for later", comment: "Indicates to the user that the article has been saved for later")
+            completion(.dismiss)
         case WMFInTheNewsNotificationShareActionIdentifier:
             completion(.dismissAndForwardAction)
         case WMFInTheNewsNotificationReadNowActionIdentifier:
@@ -133,8 +148,7 @@ class WMFInTheNewsNotificationViewController: UIViewController, UNNotificationCo
         case UNNotificationDefaultActionIdentifier:
             fallthrough
         default:
-            let wikipediaURL = articleURL as NSURL
-            guard let wikipediaSchemeURL = wikipediaURL.wmf_wikipediaScheme else {
+            guard let wikipediaSchemeURL = articleURL.replacingSchemeWithWikipediaScheme else {
                 completion(.dismiss)
                 break
             }
@@ -143,4 +157,5 @@ class WMFInTheNewsNotificationViewController: UIViewController, UNNotificationCo
             })
         }
     }
+
 }

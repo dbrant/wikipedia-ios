@@ -11,34 +11,26 @@ static const char *const MWKURLAssociationKey = "MWKURL";
 
 static const char *const MWKURLToCancelAssociationKey = "MWKURLToCancel";
 
+static const char *const MWKFaceDetectionURLToCancelAssociationKey = "MWKFaceDetectionURLToCancel";
+
 static const char *const MWKTokenToCancelAssociationKey = "MWKTokenToCancel";
 
-static const char *const MWKImageAssociationKey = "MWKImage";
-
-static const char *const WMFImageControllerAssociationKey = "WMFImageController";
+static const char *const WMFImageControllerAssociationKey = "WMFImageCacheControllerWrapper";
 
 @implementation UIImageView (WMFImageFetchingInternal)
 
 #pragma mark - Associated Objects
 
-- (WMFImageController *__nullable)wmf_imageController {
-    WMFImageController *controller = objc_getAssociatedObject(self, WMFImageControllerAssociationKey);
+- (WMFImageCacheControllerWrapper *__nullable)wmf_imageController {
+    WMFImageCacheControllerWrapper *controller = objc_getAssociatedObject(self, WMFImageControllerAssociationKey);
     if (!controller) {
-        controller = [WMFImageController sharedInstance];
+        controller = [WMFImageCacheControllerWrapper shared];
     }
     return controller;
 }
 
-- (void)wmf_setImageController:(nullable WMFImageController *)imageController {
+- (void)wmf_setImageController:(nullable WMFImageCacheControllerWrapper *)imageController {
     objc_setAssociatedObject(self, WMFImageControllerAssociationKey, imageController, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-- (MWKImage *__nullable)wmf_imageMetadata {
-    return objc_getAssociatedObject(self, MWKImageAssociationKey);
-}
-
-- (void)wmf_setImageMetadata:(nullable MWKImage *)imageMetadata {
-    objc_setAssociatedObject(self, MWKImageAssociationKey, imageMetadata, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 - (NSURL *__nullable)wmf_imageURL {
@@ -57,6 +49,14 @@ static const char *const WMFImageControllerAssociationKey = "WMFImageController"
     objc_setAssociatedObject(self, MWKURLToCancelAssociationKey, imageURL, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
+- (NSURL *__nullable)wmf_faceDetectionImageURLToCancel {
+    return objc_getAssociatedObject(self, MWKFaceDetectionURLToCancelAssociationKey);
+}
+
+- (void)wmf_setFaceDetectionImageURLToCancel:(nullable NSURL *)imageURL {
+    objc_setAssociatedObject(self, MWKFaceDetectionURLToCancelAssociationKey, imageURL, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
 - (NSString *__nullable)wmf_imageTokenToCancel {
     return objc_getAssociatedObject(self, MWKTokenToCancelAssociationKey);
 }
@@ -72,19 +72,21 @@ static const char *const WMFImageControllerAssociationKey = "WMFImageController"
 }
 
 - (NSURL *)imageURLForFaceDetection {
-    return self.wmf_imageURL ? self.wmf_imageURL : self.wmf_imageMetadata.sourceURL;
+    return self.wmf_imageURL;
 }
 
 - (BOOL)wmf_imageRequiresFaceDetection {
-    return [[[self class] faceDetectionCache] imageAtURLRequiresFaceDetection:[self imageURLForFaceDetection]];
+    return [[UIImageView faceDetectionCache] imageAtURLRequiresFaceDetection:[self imageURLForFaceDetection]];
 }
 
 - (NSValue *)wmf_faceBoundsInImage:(UIImage *)image {
-    return [[[self class] faceDetectionCache] faceBoundsForURL:[self imageURLForFaceDetection]];
+    return [[UIImageView faceDetectionCache] faceBoundsForURL:[self imageURLForFaceDetection]];
 }
 
 - (void)wmf_getFaceBoundsInImage:(UIImage *)image onGPU:(BOOL)onGPU failure:(WMFErrorHandler)failure success:(WMFSuccessNSValueHandler)success {
-    [[[self class] faceDetectionCache] detectFaceBoundsInImage:image onGPU:onGPU URL:[self imageURLForFaceDetection] failure:failure success:success];
+    NSURL *faceDetectionURL = [self imageURLForFaceDetection];
+    self.wmf_faceDetectionImageURLToCancel = faceDetectionURL;
+    [[UIImageView faceDetectionCache] detectFaceBoundsInImage:image onGPU:onGPU URL:faceDetectionURL failure:failure success:success];
 }
 
 #pragma mark - Set Image
@@ -94,7 +96,7 @@ static const char *const WMFImageControllerAssociationKey = "WMFImageController"
 
     NSURL *imageURL = [self wmf_imageURLToFetch];
     if (!imageURL) {
-        failure([NSError wmf_cancelledError]);
+        failure([WMFFetcher cancelledError]);
         return;
     }
 
@@ -123,7 +125,7 @@ static const char *const WMFImageControllerAssociationKey = "WMFImageController"
                                                                               self.wmf_imageURLToCancel = nil;
                                                                               self.wmf_imageTokenToCancel = nil;
                                                                               if (!WMF_EQUAL([self wmf_imageURLToFetch], isEqual:, imageURL)) {
-                                                                                  failure([NSError wmf_cancelledError]);
+                                                                                  failure([WMFFetcher cancelledError]);
                                                                               } else {
                                                                                   [self wmf_setImage:download.image.staticImage animatedImage:download.image.animatedImage detectFaces:detectFaces onGPU:onGPU animated:download.originRawValue != [WMFImageDownload imageOriginMemory] failure:failure success:success];
                                                                               }
@@ -132,7 +134,7 @@ static const char *const WMFImageControllerAssociationKey = "WMFImageController"
 }
 
 - (void)wmf_setImage:(UIImage *)image
-       animatedImage:(FLAnimatedImage *)animatedImage
+       animatedImage:(nullable FLAnimatedImage *)animatedImage
          detectFaces:(BOOL)detectFaces
                onGPU:(BOOL)onGPU
             animated:(BOOL)animated
@@ -163,7 +165,7 @@ static const char *const WMFImageControllerAssociationKey = "WMFImageController"
                            success:^(NSValue *bounds) {
                                dispatch_async(dispatch_get_main_queue(), ^{
                                    if (!WMF_EQUAL([self wmf_imageURLToFetch], isEqual:, imageURL)) {
-                                       failure([NSError wmf_cancelledError]);
+                                       failure([WMFFetcher cancelledError]);
                                    } else {
                                        [self wmf_setImage:image animatedImage:animatedImage detectFaces:detectFaces faceBoundsValue:bounds animated:animated failure:failure success:success];
                                    }
@@ -172,7 +174,7 @@ static const char *const WMFImageControllerAssociationKey = "WMFImageController"
 }
 
 - (void)wmf_setImage:(UIImage *)image
-       animatedImage:(FLAnimatedImage *)animatedImage
+       animatedImage:(nullable FLAnimatedImage *)animatedImage
          detectFaces:(BOOL)detectFaces
      faceBoundsValue:(nullable NSValue *)faceBoundsValue
             animated:(BOOL)animated
@@ -231,10 +233,11 @@ static const char *const WMFImageControllerAssociationKey = "WMFImageController"
 
 - (void)wmf_cancelImageDownload {
     [self.wmf_imageController cancelFetchWithURL:[self wmf_imageURLToCancel] token:[self wmf_imageTokenToCancel]];
+    [[UIImageView faceDetectionCache] cancelFaceDetectionForURL:[self wmf_faceDetectionImageURLToCancel]];
     self.wmf_imageURL = nil;
-    self.wmf_imageMetadata = nil;
     self.wmf_imageURLToCancel = nil;
     self.wmf_imageTokenToCancel = nil;
+    self.wmf_faceDetectionImageURLToCancel = nil;
 }
 
 @end

@@ -1,20 +1,22 @@
 import UIKit
 
 protocol AddArticlesToReadingListDelegate: NSObjectProtocol {
-    func addArticlesToReadingListWillBeClosed(_ addArticlesToReadingList: AddArticlesToReadingListViewController)
+    func addArticlesToReadingListWillClose(_ addArticlesToReadingList: AddArticlesToReadingListViewController)
     func addArticlesToReadingListDidDisappear(_ addArticlesToReadingList: AddArticlesToReadingListViewController)
     func addArticlesToReadingList(_ addArticlesToReadingList: AddArticlesToReadingListViewController, didAddArticles articles: [WMFArticle], to readingList: ReadingList)
 }
 
 extension AddArticlesToReadingListDelegate where Self: EditableCollection {
-    func addArticlesToReadingListWillBeClosed(_ addArticlesToReadingList: AddArticlesToReadingListViewController) {
+    func addArticlesToReadingListWillClose(_ addArticlesToReadingList: AddArticlesToReadingListViewController) {
         editController.close()
     }
     
     func addArticlesToReadingList(_ addArticlesToReadingList: AddArticlesToReadingListViewController, didAddArticles articles: [WMFArticle], to readingList: ReadingList) {
         editController.close()
     }
+}
 
+extension AddArticlesToReadingListDelegate {
     func addArticlesToReadingListDidDisappear(_ addArticlesToReadingList: AddArticlesToReadingListViewController) {
 
     }
@@ -47,7 +49,7 @@ class AddArticlesToReadingListViewController: ViewController {
     
     @objc private func closeButtonPressed() {
         dismiss(animated: true)
-        delegate?.addArticlesToReadingListWillBeClosed(self)
+        delegate?.addArticlesToReadingListWillClose(self)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -57,6 +59,11 @@ class AddArticlesToReadingListViewController: ViewController {
     
     @objc private func createNewReadingListButtonPressed() {
         readingListsViewController.createReadingList(with: articles, moveFromReadingList: moveFromReadingList)
+    }
+
+    override func accessibilityPerformEscape() -> Bool {
+        closeButtonPressed()
+        return true
     }
 
     private var isCreateNewReadingListButtonViewHidden: Bool = false {

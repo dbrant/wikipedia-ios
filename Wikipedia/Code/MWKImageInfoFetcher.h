@@ -1,9 +1,10 @@
-@import WMF.FetcherBase;
-@import WMF.WMFBlockDefinitions;
+@import Foundation;
+#import "WMFLegacyFetcher.h"
+#import "WMFBlockDefinitions.h"
 
-@class MWKArticle;
+NS_ASSUME_NONNULL_BEGIN
+
 @class NSURLSessionDataTask;
-@class AFHTTPSessionManager;
 
 @protocol MWKImageInfoRequest <NSObject>
 
@@ -11,9 +12,7 @@
 
 @end
 
-@interface MWKImageInfoFetcher : FetcherBase
-
-- (instancetype)initWithDelegate:(id<FetchFinishedDelegate>)delegate;
+@interface MWKImageInfoFetcher : WMFLegacyFetcher
 
 /**
  * Fetch the imageinfo for the given image page titles.
@@ -48,6 +47,14 @@
                                  failure:(WMFErrorHandler)failure
                                  success:(WMFSuccessIdHandler)success;
 
-- (void)cancelAllFetches;
+- (void)fetchImageInfoForCommonsFiles:(NSArray *)filenames
+                              failure:(WMFErrorHandler)failure
+                              success:(WMFSuccessIdHandler)success;
+
+- (nullable NSURL *)galleryInfoURLForImageTitles: (NSArray *)imageTitles fromSiteURL: (NSURL *)siteURL;
+
+- (nullable NSURLRequest *)urlRequestForFromURL: (NSURL *)url;
 
 @end
+
+NS_ASSUME_NONNULL_END

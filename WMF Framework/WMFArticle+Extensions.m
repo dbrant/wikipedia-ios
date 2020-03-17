@@ -15,6 +15,20 @@
     return [NSURL URLWithString:key];
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations" // this is the only section of code where the "deprecated" but not really deprecated displayTitleHTMLString should be used
+
+- (void)setDisplayTitleHTML:(NSString *)displayTitleHTML {
+    self.displayTitleHTMLString = displayTitleHTML;
+    self.displayTitle = displayTitleHTML.wmf_stringByRemovingHTML;
+}
+
+- (NSString *)displayTitleHTML {
+    return self.displayTitleHTMLString ?: self.displayTitle ?: self.URL.wmf_title ?: @"";
+}
+
+#pragma clang diagnostic pop
+
 - (nullable NSURL *)thumbnailURL {
     NSString *thumbnailURLString = self.thumbnailURLString;
     if (!thumbnailURLString) {
@@ -23,29 +37,37 @@
     return [NSURL URLWithString:thumbnailURLString];
 }
 
++ (nullable NSURL *)imageURLForTargetImageWidth:(NSInteger)width fromImageSource:(NSString *)imageSource withOriginalWidth:(NSInteger)originalWidth {
+    NSAssert(width > 0, @"Width must be > 0");
+    if (width <= 0) {
+       return nil;
+    }
+    NSString *lowercasePathExtension = [[imageSource pathExtension] lowercaseString];
+    if (width >= originalWidth && ![lowercasePathExtension isEqualToString:@"svg"] && ![lowercasePathExtension isEqualToString:@"pdf"]) {
+       return [NSURL URLWithString:imageSource];
+    }
+    return [NSURL URLWithString:WMFChangeImageSourceURLSizePrefix(imageSource, width)];
+}
+
 - (nullable NSURL *)imageURLForWidth:(NSInteger)width {
     NSAssert(width > 0, @"Width must be > 0");
     if (width <= 0) {
-        return nil;
+       return nil;
     }
     NSString *imageURLString = self.imageURLString;
     NSNumber *imageWidth = self.imageWidth;
     if (!imageURLString || !imageWidth) {
-        NSString *thumbnailURLString = self.thumbnailURLString;
-        if (!thumbnailURLString) {
-            return nil;
-        }
-        NSInteger sizePrefix = WMFParseSizePrefixFromSourceURL(thumbnailURLString);
-        if (sizePrefix == NSNotFound || width >= sizePrefix) {
-            return [NSURL URLWithString:thumbnailURLString];
-        }
-        return [NSURL URLWithString:WMFChangeImageSourceURLSizePrefix(thumbnailURLString, width)];
+       NSString *thumbnailURLString = self.thumbnailURLString;
+       if (!thumbnailURLString) {
+           return nil;
+       }
+       NSInteger sizePrefix = WMFParseSizePrefixFromSourceURL(thumbnailURLString);
+       if (sizePrefix == NSNotFound || width >= sizePrefix) {
+           return [NSURL URLWithString:thumbnailURLString];
+       }
+       return [NSURL URLWithString:WMFChangeImageSourceURLSizePrefix(thumbnailURLString, width)];
     }
-    NSString *lowercasePathExtension = [[imageURLString pathExtension] lowercaseString];
-    if (width >= [imageWidth integerValue] && ![lowercasePathExtension isEqualToString:@"svg"] && ![lowercasePathExtension isEqualToString:@"pdf"]) {
-        return [NSURL URLWithString:imageURLString];
-    }
-    return [NSURL URLWithString:WMFChangeImageSourceURLSizePrefix(imageURLString, width)];
+    return [WMFArticle imageURLForTargetImageWidth:width fromImageSource:imageURLString withOriginalWidth:[imageWidth integerValue]];
 }
 
 - (void)setThumbnailURL:(NSURL *)thumbnailURL {
@@ -99,7 +121,16 @@
 @implementation NSManagedObjectContext (WMFArticle)
 
 - (nullable WMFArticle *)fetchArticleWithURL:(nullable NSURL *)articleURL {
-    return [self fetchArticleWithKey:[articleURL wmf_articleDatabaseKey]];
+    return [self fetchArticleWithKey:[articleURL wmf_databaseKey]];
+}
+
+- (nullable NSArray<WMFArticle *> *)fetchArticlesWithKey:(nullable NSString *)key error:(NSError **)error {
+    if (!key) {
+        return @[];
+    }
+    NSFetchRequest *request = [WMFArticle fetchRequest];
+    request.predicate = [NSPredicate predicateWithFormat:@"key == %@", key];
+    return [self executeFetchRequest:request error:nil];
 }
 
 - (nullable WMFArticle *)fetchArticleWithKey:(nullable NSString *)key {
@@ -127,7 +158,7 @@
 }
 
 - (nullable WMFArticle *)createArticleWithKey:(nullable NSString *)key {
-    WMFArticle *article = [[WMFArticle alloc] initWithEntity:[NSEntityDescription entityForName:@"WMFArticle" inManagedObjectContext:self] insertIntoManagedObjectContext:self];
+    WMFArticle *article = [[WMFArticle alloc] initWithContext:self];
     article.key = key;
     return article;
 }
@@ -144,7 +175,7 @@
 }
 
 - (nullable WMFArticle *)fetchOrCreateArticleWithURL:(nullable NSURL *)articleURL {
-    return [self fetchOrCreateArticleWithKey:[articleURL wmf_articleDatabaseKey]];
+    return [self fetchOrCreateArticleWithKey:[articleURL wmf_databaseKey]];
 }
 
 - (nullable WMFArticle *)fetchOrCreateArticleWithURL:(nullable NSURL *)articleURL updatedWithSearchResult:(nullable MWKSearchResult *)searchResult {

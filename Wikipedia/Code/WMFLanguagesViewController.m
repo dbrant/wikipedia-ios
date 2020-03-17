@@ -6,6 +6,7 @@
 #import "Wikipedia-Swift.h"
 #import "WMFArticleLanguagesSectionHeader.h"
 #import "WMFArticleLanguagesSectionFooter.h"
+#import "WMFLanguagesViewControllerDelegate.h"
 
 static CGFloat const WMFOtherLanguageRowHeight = 138.f;
 static CGFloat const WMFLanguageHeaderHeight = 57.f;
@@ -41,7 +42,7 @@ static CGFloat const WMFLanguageHeaderHeight = 57.f;
     WMFLanguagesViewController *languagesVC = [[WMFLanguagesViewController alloc] initWithNibName:@"WMFLanguagesViewController" bundle:nil];
     NSParameterAssert(languagesVC);
 
-    languagesVC.title = WMFLocalizedStringWithDefaultValue(@"article-languages-label", nil, nil, @"Choose language", @"Header label for per-article language selector screen.\n{{Identical|Choose language}}");
+    languagesVC.title = WMFLocalizedStringWithDefaultValue(@"article-languages-label", nil, nil, @"Choose language", @"Header label for per-article language selector screen. {{Identical|Choose language}}");
     languagesVC.editing = NO;
     return languagesVC;
 }
@@ -324,12 +325,12 @@ static CGFloat const WMFLanguageHeaderHeight = 57.f;
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     MWKLanguageLink *selectedLanguage = [self languageAtIndexPath:indexPath];
-    if ([self.delegate respondsToSelector:@selector(languagesController:didSelectLanguage:)]) {
+    if ([self.delegate respondsToSelector:@selector(languagesController:didSelectLanguage:)] && selectedLanguage) {
         [self.delegate languagesController:self didSelectLanguage:selectedLanguage];
     } else if (self.showExploreFeedCustomizationSettings && [self isExploreFeedCustomizationSettingsSection:indexPath.section]) {
         self.title = nil;
         WMFExploreFeedSettingsViewController *feedSettingsVC = [[WMFExploreFeedSettingsViewController alloc] init];
-        feedSettingsVC.dataStore = SessionSingleton.sharedInstance.dataStore;
+        feedSettingsVC.dataStore = MWKDataStore.shared;
         [feedSettingsVC applyTheme:self.theme];
         [self.navigationController pushViewController:feedSettingsVC animated:YES];
     }
@@ -396,6 +397,9 @@ static CGFloat const WMFLanguageHeaderHeight = 57.f;
     self.theme = theme;
     if (self.viewIfLoaded == nil) {
         return;
+    }
+    if (@available(iOS 13.0, *)) {
+        self.overrideUserInterfaceStyle = theme.isDark ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;
     }
     self.view.backgroundColor = theme.colors.baseBackground;
     UIColor *backgroundColor = theme.colors.baseBackground;
@@ -466,7 +470,7 @@ static CGFloat const WMFLanguageHeaderHeight = 57.f;
     WMFLanguagesViewController *languagesVC = [WMFLanguagesViewController nonPreferredLanguagesViewController];
     languagesVC.delegate = self;
     [languagesVC applyTheme:self.theme];
-    [self presentViewController:[[WMFThemeableNavigationController alloc] initWithRootViewController:languagesVC theme:self.theme] animated:YES completion:NULL];
+    [self presentViewController:[[WMFThemeableNavigationController alloc] initWithRootViewController:languagesVC theme:self.theme style:WMFThemeableNavigationControllerStyleSheet] animated:YES completion:NULL];
 }
 
 - (void)languagesController:(WMFLanguagesViewController *)controller didSelectLanguage:(MWKLanguageLink *)language {
@@ -564,7 +568,7 @@ static CGFloat const WMFLanguageHeaderHeight = 57.f;
     languagesVC.articleURL = url;
     languagesVC.editing = NO;
     languagesVC.showExploreFeedCustomizationSettings = NO;
-    languagesVC.title = WMFLocalizedStringWithDefaultValue(@"languages-title", nil, nil, @"Change language", @"Title for language picker\n{{Identical|Language}}");
+    languagesVC.title = WMFLocalizedStringWithDefaultValue(@"languages-title", nil, nil, @"Change language", @"Title for language picker {{Identical|Language}}");
 
     return languagesVC;
 }

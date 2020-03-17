@@ -30,10 +30,14 @@ class ArticleFetchedResultsViewController: ArticleCollectionViewController, Coll
     }
     
     override func delete(at indexPath: IndexPath) {
-        guard let articleURL = articleURL(at: indexPath) else {
+        guard let article = article(at: indexPath) else {
             return
         }
-        dataStore.historyList.removeEntry(with: articleURL)
+        do {
+            try article.removeFromReadHistory()
+        } catch let error {
+            showError(error)
+        }
     }
     
     override func canDelete(at indexPath: IndexPath) -> Bool {
@@ -85,7 +89,7 @@ class ArticleFetchedResultsViewController: ArticleCollectionViewController, Coll
         updateEmptyState()
     }
     
-    func collectionViewUpdater<T>(_ updater: CollectionViewUpdater<T>, updateItemAtIndexPath indexPath: IndexPath, in collectionView: UICollectionView) where T : NSFetchRequestResult {
+    func collectionViewUpdater<T: NSFetchRequestResult>(_ updater: CollectionViewUpdater<T>, updateItemAtIndexPath indexPath: IndexPath, in collectionView: UICollectionView) {
         
     }
     
@@ -93,9 +97,9 @@ class ArticleFetchedResultsViewController: ArticleCollectionViewController, Coll
         super.isEmptyDidChange()
         updateDeleteButton()
     }
-    
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
         editController.close()
     }
     

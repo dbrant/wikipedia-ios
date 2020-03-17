@@ -79,7 +79,7 @@ class ExploreFeedSettingsMaster: ExploreFeedSettingsItem {
             isOn = contentGroupKind.isInFeed
         } else {
             title = WMFLocalizedString("explore-feed-preferences-explore-tab", value: "Explore tab", comment: "Text for the setting that allows users to toggle whether the Explore tab is enabled or not")
-            isOn = UserDefaults.wmf.defaultTabType == .explore
+            isOn = UserDefaults.standard.defaultTabType == .explore
         }
     }
 
@@ -87,7 +87,7 @@ class ExploreFeedSettingsMaster: ExploreFeedSettingsItem {
         if case let .singleFeedCard(contentGroupKind) = type {
             isOn = contentGroupKind.isInFeed
         } else {
-            isOn = UserDefaults.wmf.defaultTabType == .explore
+            isOn = UserDefaults.standard.defaultTabType == .explore
         }
     }
 }
@@ -132,13 +132,13 @@ class ExploreFeedSettingsGlobalCards: ExploreFeedSettingsItem {
     let title: String = WMFLocalizedString("explore-feed-preferences-global-cards-title", value: "Global cards", comment: "Title for the setting that allows users to toggle non-language specific feed cards")
     let subtitle: String? = WMFLocalizedString("explore-feed-preferences-global-cards-description", value: "Non-language specific cards", comment: "Description of global feed cards")
     let controlTag: Int = -2
-    var isOn: Bool = SessionSingleton.sharedInstance().dataStore.feedContentController.areGlobalContentGroupKindsInFeed
+    var isOn: Bool = MWKDataStore.shared().feedContentController.areGlobalContentGroupKindsInFeed
 
     func updateIsOn(for displayType: ExploreFeedSettingsDisplayType) {
         guard displayType == .singleLanguage || displayType == .multipleLanguages else {
             return
         }
-        isOn = SessionSingleton.sharedInstance().dataStore.feedContentController.areGlobalContentGroupKindsInFeed
+        isOn = MWKDataStore.shared().feedContentController.areGlobalContentGroupKindsInFeed
     }
 }
 
@@ -151,9 +151,10 @@ enum ExploreFeedSettingsDisplayType: Equatable {
 class BaseExploreFeedSettingsViewController: SubSettingsViewController {
     @objc var dataStore: MWKDataStore?
 
-    var cellsToItemsThatNeedReloading = [WMFSettingsTableViewCell: ExploreFeedSettingsItem]()
-
     open var displayType: ExploreFeedSettingsDisplayType = .singleLanguage
+    var activeSwitch: UISwitch?
+
+    var updateFeedBeforeViewDisappears: Bool = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -189,6 +190,16 @@ class BaseExploreFeedSettingsViewController: SubSettingsViewController {
         return []
     }
 
+    lazy var itemsGroupedByIndexPaths: [IndexPath: ExploreFeedSettingsItem] = {
+        var dictionary = [IndexPath: ExploreFeedSettingsItem]()
+        for (sectionIndex, section) in sections.enumerated() {
+            for (itemIndex, item) in section.items.enumerated() {
+                dictionary[IndexPath(row: itemIndex, section: sectionIndex)] = item
+            }
+        }
+        return dictionary
+    }()
+
     func getItem(at indexPath: IndexPath) -> ExploreFeedSettingsItem {
         let items = getSection(at: indexPath.section).items
         assert(items.indices.contains(indexPath.row), "Item at indexPath \(indexPath) doesn't exist")
@@ -202,27 +213,35 @@ class BaseExploreFeedSettingsViewController: SubSettingsViewController {
 
     // MARK: - Notifications
 
-    open func reload() {
-        for (cell, item) in cellsToItemsThatNeedReloading {
+    private func reload() {
+        for (indexPath, item) in itemsGroupedByIndexPaths {
+            item.updateIsOn(for: displayType)
             item.updateDisclosureText(for: displayType)
             item.updateSubtitle(for: displayType)
-            item.updateIsOn(for: displayType)
+            guard let cell = tableView.cellForRow(at: indexPath) as? WMFSettingsTableViewCell else {
+                continue
+            }
+            cell.disclosureSwitch.setOn(item.isOn, animated: true)
             cell.disclosureText = item.disclosureText
             cell.subtitle = item.subtitle
-            cell.disclosureSwitch.setOn(item.isOn, animated: true)
         }
     }
 
-    @objc open func exploreFeedPreferencesDidSave(_ notification: Notification) {
+    @objc private func exploreFeedPreferencesDidSave(_ notification: Notification) {
+        updateFeedBeforeViewDisappears = true
+        guard displayType != .singleLanguage else {
+            return
+        }
         DispatchQueue.main.async {
             self.reload()
         }
     }
 
-    @objc open func newExploreFeedPreferencesWereRejected(_ notification: Notification) {
-        DispatchQueue.main.async {
-            self.reload()
+    @objc private func newExploreFeedPreferencesWereRejected(_ notification: Notification) {
+        guard let activeSwitch = activeSwitch else {
+            return
         }
+        activeSwitch.setOn(!activeSwitch.isOn, animated: true)
     }
 
     // MARK: - Themeable
@@ -232,7 +251,9 @@ class BaseExploreFeedSettingsViewController: SubSettingsViewController {
         guard viewIfLoaded != nil else {
             return
         }
+        view.backgroundColor = theme.colors.baseBackground
         tableView.backgroundColor = theme.colors.baseBackground
+        tableView.reloadData()
     }
 
 }
@@ -244,18 +265,17 @@ extension BaseExploreFeedSettingsViewController {
         return sections.count
     }
 
-    override  func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         let section = getSection(at: section)
         return section.items.count
     }
 
-    override  func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let cell = tableView.dequeueReusableCell(withIdentifier: WMFSettingsTableViewCell.identifier, for: indexPath) as? WMFSettingsTableViewCell else {
             return UITableViewCell()
         }
         let item = getItem(at: indexPath)
         configureCell(cell, item: item)
-        cellsToItemsThatNeedReloading[cell] = item
         return cell
     }
 
@@ -268,12 +288,12 @@ extension BaseExploreFeedSettingsViewController {
 // MARK: - UITableViewDelegate
 
 extension BaseExploreFeedSettingsViewController {
-    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+    @objc func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         let section = getSection(at: section)
         return section.headerTitle
     }
 
-    func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+    @objc func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
         guard let footer = tableView.dequeueReusableHeaderFooterView(withIdentifier: WMFTableHeaderFooterLabelView.identifier) as? WMFTableHeaderFooterLabelView else {
             return nil
         }
@@ -286,7 +306,7 @@ extension BaseExploreFeedSettingsViewController {
         return footer
     }
 
-    func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+    @objc func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
         guard let _ = self.tableView(tableView, viewForFooterInSection: section) as? WMFTableHeaderFooterLabelView else {
             return 0
         }

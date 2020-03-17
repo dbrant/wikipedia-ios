@@ -2,6 +2,7 @@
 // Exported from translatewiki.net
 // Author: Arnobarnard
 // Author: Fwolff
+// Author: Joris Darlington Quarshie
 // Author: Naudefj
 // Author: Nemo bis
 // Author: Puvircho
@@ -24,14 +25,19 @@
 "about-translators-details" = "Vertaal deur vrywilligers by $1";
 "about-wikimedia-foundation" = "Wikimedia Foundation";
 "about-wikipedia" = "Wikipedia";
+// Fuzzy
 "abuse-filter-disallow-heading" = "U kan nie hierdie wysiging publiseer nie. Gaan asseblief terug en verander dit.";
-"abuse-filter-disallow-notable" = "Wikipedia is 'n ensiklopedie: slegs neutrale en noemenswaardige inhoud behoort hier.";
+// Fuzzy
 "abuse-filter-disallow-unconstructive" = "'n Outomatiese filter het hierdie wysiging as potensiëel onkonstruktief, of 'n poging tot vandalisme geïdentifiseer.";
+// Fuzzy
 "abuse-filter-warning-blanking" = "Bladsye leeg maak of spam plaas";
+// Fuzzy
 "abuse-filter-warning-caps" = "Tik in HOOFLETTERS";
 "abuse-filter-warning-heading" = "Hierdie blyk ’n onkonstruktiewe wysiging te wees, is u seker u wil dit publiseer?";
 "abuse-filter-warning-irrelevant" = "Irrelevante eksterne skakels of beelde";
+// Fuzzy
 "abuse-filter-warning-repeat" = "Herhaaaalende karakters";
+// Fuzzy
 "abuse-filter-warning-subheading" = "U wysiging mag een of meer van die volgende bevat:";
 "account-creation-captcha-obtaining" = "Verkry ’n nuwe CAPTCHA…";
 "account-creation-create-account" = "Skep u rekening";
@@ -46,6 +52,8 @@
 "action-add-to-reading-list" = "Voeg by leeslys";
 "action-add-to-reading-list-short" = "Voeg by lys";
 "action-cancel" = "Kanselleer";
+// Fuzzy
+"action-find-in-page" = "Soek in blad";
 "action-move-to" = "Skuif na…";
 "action-move-to-reading-list" = "Skuif na leeslys";
 "action-read" = "Lees";
@@ -54,7 +62,6 @@
 "action-saved" = "Bewaar";
 "action-share" = "Deel";
 "action-sort" = "Sorteer";
-"alert-no-internet" = "Daar is geen internetverbinding";
 // Fuzzy
 "announcements-dismiss" = "Nee dankie";
 "app-store-subtitle" = "Die vry ensiklopedie";
@@ -65,10 +72,7 @@
 "article-languages-yours" = "U tale";
 "article-read-more-title" = "Lees meer";
 "article-share" = "Deel";
-"article-unable-to-load-article" = "Kan nie artikel laai nie.";
-"article-unable-to-load-section" = "Kon nie hierdie seksie laai nie. Probeer die artikel herlaai om te sien of dit die probleem oplos.";
 "back-button-accessibility-label" = "Terug";
-"button-done" = "Gedoen";
 "button-next" = "Volgende";
 "button-ok" = "Goed";
 "button-publish" = "Publiseer";
@@ -78,16 +82,12 @@
 "button-saved-for-later" = "Bewaar vir later";
 "button-skip" = "Slaan oor";
 "cancel" = "Kanselleer";
-"cc-by-sa-3.0" = "CC BY-SA 3.0";
 "close-button-accessibility-label" = "Sluit";
 "compass-direction" = "by $1 uur";
 "continue-reading-empty-description" = "Verken Wikipedia vir meer artikels om te lees";
 "edit-summary-choice-fixed-grammar" = "Grammatika gekorrigeer";
 "edit-summary-choice-fixed-typos" = "Spelfout gekorrigeer";
 "edit-summary-choice-linked-words" = "Skakels bygevoeg";
-"edit-summary-choice-other" = "Ander";
-"edit-summary-field-placeholder-text" = "Ander maniere waarop u die blad verbeter het";
-"edit-summary-title" = "Hoe het u die bladsy verbeter?";
 "empty-no-search-results-message" = "Geen resultate gevind nie";
 "explore-featured-article-heading" = "Voorbladartikel";
 "explore-featured-article-sub-heading-from-language-wikipedia" = "Uit Wikipedia in $1";
@@ -107,7 +107,6 @@
 "explore-random-article-sub-heading-from-language-wikipedia" = "Uit Wikipedia in $1";
 "explore-random-article-sub-heading-from-wikipedia" = "Uit Wikipedia";
 "field-alert-password-confirm-mismatch" = "Wagwoorde stem nie ooreen nie";
-"field-alert-password-invalid" = "Ongeldige wagwoord";
 "field-alert-token-invalid" = "Ongeldige kode";
 "field-alert-username-unavailable" = "Gebruikersnaam onbeskikbaar";
 "field-backup-token-title" = "Rugsteunkode";
@@ -127,28 +126,17 @@
 "field-token-title" = "Bevestigingskode";
 "field-username-placeholder" = "voer gebruikersnaam in";
 "field-username-title" = "Gebruikersnaam";
-"find-in-page-button-label" = "Soek in blad";
-"find-in-page-number-matches" = "$1 / $2";
+"find-infolabel-number-matches" = "$1 / $2";
 "forgot-password-button-title" = "Herstel";
 "forgot-password-email-sent" = "'n E-pos is gestuur met instruksies om die wagwoord te herstel";
 "forgot-password-title" = "Herstel wagwoord";
 "forgot-password-username-or-email-title" = "Of";
-"gfdl" = "GFDL";
 "history-clear-all" = "Maak skoon";
 "history-clear-cancel" = "Kanselleer";
 // Fuzzy
 "history-clear-confirmation-heading" = "Skrap alle onlangse items?";
 "history-clear-delete-all" = "Ja, skrap alles";
 "history-title" = "Geskiedenis";
-"hockeyapp-alert-always-send" = "Stuur altyd";
-"hockeyapp-alert-do-not-send" = "Moenie stuur";
-"hockeyapp-alert-privacy" = "$1 privaatheid";
-// Fuzzy
-"hockeyapp-alert-question" = "Wil u 'n breekverslag aan $1 stuur sodat Wikimedia die breek kan hersien?";
-// Fuzzy
-"hockeyapp-alert-question-with-response-field" = "Wil u 'n breekverslag aan $1 stuur sodat Wikimedia die breek kan hersien? Beskryf asseblief wat gebeur het tydens die breek:";
-"hockeyapp-alert-send-report" = "Stuur verslag";
-"hockeyapp-alert-title" = "Jammer, toep het laaskeer gebreek";
 "home-more-like-footer" = "Nog soos $1";
 "home-nearby-footer" = "Meer nabygeleë plekke";
 "home-nearby-location-footer" = "Meer naby aan $1";
@@ -157,6 +145,7 @@
 "image-gallery-unknown-owner" = "Oplaaier onbekend.";
 "in-the-news-notification-read-now-action-title" = "Lees Nou";
 "in-the-news-notification-save-for-later-action-title" = "Bewaar vir later";
+// Fuzzy
 "in-the-news-notification-share-action-title" = "Deel…";
 "in-the-news-sub-title-from-language-wikipedia" = "Uit Wikipedia in $1";
 "in-the-news-sub-title-from-wikipedia" = "Uit Wikipedia";
@@ -178,11 +167,9 @@
 "main-menu-account-logout-are-you-sure" = "Is u seker u wil uitteken?";
 "main-menu-account-logout-cancel" = "Kanselleer";
 "main-menu-account-title-logged-in" = "Aangeteken as $1";
-"main-menu-debug-crash" = "Breek";
 "main-menu-debug-tweaks" = "Ontwikkelaarinstellings";
 "main-menu-heading-debug" = "Ontfout";
 "main-menu-heading-legal" = "Privaatheid en Voorwaardes";
-"main-menu-heading-zero" = "Wikipedia Zero";
 "main-menu-nearby" = "Naby";
 "main-menu-privacy-policy" = "Privaatheidsbeleid";
 "main-menu-rate-app" = "Gradeer toep";
@@ -204,10 +191,9 @@
 "on-this-day-detail-header-date-range" = "tussen $1 - $2";
 "on-this-day-sub-title-for-date-from-language-wikipedia" = "$1 uit Wikipedia in $2";
 "on-this-day-title" = "Op dié dag";
-"open-link-cancel" = "Kanselleer";
 "original-tab-button-popover-description" = "Raak op die 'W' om terug te gaan na die eerste oortjie";
-"page-history-title" = "Artikelgeskiedenis";
 "page-issues" = "Bladprobleme";
+// Fuzzy
 "page-last-edited" = "$1 dae gelede gewysig";
 "page-location" = "Bekyk op ’n kaart";
 "page-protected-autoconfirmed" = "Hierdie blad is semi-beskerm.";
@@ -215,6 +201,7 @@
 "page-protected-can-not-edit-title" = "Hierdie blad is beskerm";
 "page-protected-other" = "Hierdie blad is beskerm tot die volgende vlakke: $1";
 "page-protected-sysop" = "Hierdie blad is volledig beskerm.";
+// Fuzzy
 "page-read-in-other-languages" = "Beskikbaar in nog $1 tale";
 "page-similar-titles" = "Soortgelyke bladsye";
 "places-accessibility-group" = "$1 artikels";
@@ -235,6 +222,7 @@
 "reference-title" = "Verwysing $1";
 "request-feedback-on-error" = "Die toep het ’n probleem ervaar waarvan ons ontwikkelaars meer wil weet. Tik hier om aan ons ’n e-pos met die foutbesonderhede te stuur.";
 "saved-reading-lists-title" = "Leeslyste";
+// Fuzzy
 "saved-search-default-text" = "Soek";
 "saved-title" = "Gestoor";
 "search-button-accessibility-label" = "Deursoek Wikipedia";
@@ -254,7 +242,6 @@
 "settings-support" = "Ondersteun Wikipedia";
 "settings-title" = "Voorkeure";
 "share-article-name-on-wikipedia" = "\"$1\" op @Wikipedia:";
-"share-custom-menu-item" = "Deel…";
 "share-default-format" = "“$1” uit “$2”: $3";
 "share-email-format" = "“$1”\n\nuit “$2”\n\n$3";
 "share-get-directions-in-maps" = "Kry Aanwysings";
@@ -270,6 +257,7 @@
 "table-of-contents-close-accessibility-hint" = "Sluit";
 "table-of-contents-close-accessibility-label" = "Sluit Inhoudsopgawe";
 "table-of-contents-heading" = "Inhoud";
+"table-of-contents-hide-button-label" = "Steek die inhoudsopgawe";
 "table-title-other" = "Meer inligting";
 "theme-black-display-name" = "Swart";
 "theme-dark-display-name" = "Donker";
@@ -288,8 +276,6 @@
 "welcome-languages-add-or-edit-button" = "Voeg voorkeurtale by of redigeer hulle";
 "welcome-languages-description" = "Ons het die volgende tale op die toestel gekry:";
 "welcome-languages-search-title" = "Deursoek Wikipedia in bykans 300 tale";
-"wikitext-download-failed" = "Kon nie nuutste weergawe bekom nie.";
-"wikitext-download-success" = "Inhoud gelaai.";
 "wikitext-downloading" = "Laai inhoud...";
 "wikitext-preview-changes" = "Verkry voorskou van u wysigings...";
 "wikitext-preview-changes-none" = "Geen wysigings gemaak om voor te skou.";
@@ -302,14 +288,3 @@
 "wikitext-upload-save-anonymously-warning" = "Wysigings sal toegeskryf word aan die IP-adres van u toestel. Indien u $1 sal u meer privaatheid geniet.";
 "wikitext-upload-save-sign-in" = "Meld aan";
 "wikitext-upload-save-terms-name" = "Gebruiksvoorwaardes";
-"zero-charged-verbiage" = "Wikipedia Zero is af";
-"zero-charged-verbiage-extended" = "Laai van ander artikels mag datakostes veroorsaak. Gestoorde artikels is aflyn, gebruik geen data en is dus kosteloos.";
-"zero-free-verbiage" = "Gratis Wikipedia toegang van jou diensverskaffer (datakostes kwytgeskeld)";
-"zero-interstitial-cancel" = "Bly Hier";
-"zero-interstitial-continue" = "Verlaat";
-"zero-interstitial-leave-app" = "Datakostes mag gehef word. Gaan na eksterne webadres?";
-"zero-interstitial-title" = "U verlaat Wikipedia Zero";
-"zero-learn-more" = "Datakostes is kwytgeskeld vir hierdie Wikipedia toep.";
-"zero-learn-more-learn-more" = "Lees meer";
-"zero-learn-more-no-thanks" = "Sluit";
-"zero-warn-when-leaving" = "Waarsku indien Zero verlaat word";

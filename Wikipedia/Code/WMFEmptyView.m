@@ -14,6 +14,8 @@
 @property (strong, nonatomic) IBOutlet WMFAlignedImageButton *button;
 @property (strong, nonatomic) CAShapeLayer *actionLineLayer;
 @property (nonatomic, strong) WMFTheme *theme;
+@property (nonatomic, strong) NSString *backgroundColorKeyPath;
+@property (nonatomic, strong) NSString *titleLabelTextColorKeyPath;
 
 @end
 
@@ -24,8 +26,26 @@
     if (!self.theme) {
         self.theme = [WMFTheme standard];
     }
+    [self updateFonts];
+    [self updateImageView];
     [self wmf_configureSubviewsForDynamicType];
     [self applyTheme:self.theme];
+}
+
+- (NSString *)backgroundColorKeyPath {
+    if (!_backgroundColorKeyPath) {
+        return @"colors.paperBackground";
+    } else {
+        return _backgroundColorKeyPath;
+    }
+}
+
+- (NSString *)titleLabelTextColorKeyPath {
+    if (!_titleLabelTextColorKeyPath) {
+        return @"colors.primaryText";
+    } else {
+        return _titleLabelTextColorKeyPath;
+    }
 }
 
 + (instancetype)emptyView {
@@ -46,7 +66,7 @@
 + (instancetype)noFeedEmptyView {
     WMFEmptyView *view = [[self class] emptyView];
     view.imageView.image = [UIImage imageNamed:@"no-internet"];
-    view.titleLabel.text = WMFLocalizedStringWithDefaultValue(@"empty-no-feed-title", nil, nil, @"No Internet Connection", @"Title of messsage shown in place of feed when no content could be loaded. Indicates there is no internet available");
+    view.titleLabel.text = [WMFCommonStrings noInternetConnection];
     view.messageLabel.text = WMFLocalizedStringWithDefaultValue(@"empty-no-feed-message", nil, nil, @"You can see your recommended articles when you have internet", @"Body of messsage shown in place of content when no feed could be loaded. Tells users they can see the articles when the interent is restored");
     view.actionLabel.text = WMFLocalizedStringWithDefaultValue(@"empty-no-feed-action-message", nil, nil, @"You can still read saved pages", @"Footer messsage shown in place of content when no feed could be loaded. Tells users they can read saved pages offline");
     [view.button removeFromSuperview];
@@ -89,6 +109,18 @@
     return view;
 }
 
++ (instancetype)noInternetConnectionEmptyView {
+    WMFEmptyView *view = [[self class] emptyView];
+    view.imageView.image = [UIImage imageNamed:@"no-internet-blank"];
+    view.titleLabel.text = [WMFCommonStrings noInternetConnection];
+
+    [view.messageLabel removeFromSuperview];
+    [view.actionLabel removeFromSuperview];
+    [view.actionLine removeFromSuperview];
+    [view.button removeFromSuperview];
+    return view;
+}
+
 + (instancetype)noSavedPagesInReadingListEmptyView {
     WMFEmptyView *view = [[self class] emptyView];
     view.imageView.image = [UIImage imageNamed:@"saved-blank"];
@@ -101,7 +133,7 @@
     return view;
 }
 
-+ (instancetype)noReadingListsEmptyViewWithTarget:(nullable id)target action:(nonnull SEL)action {
++ (instancetype)noReadingListsEmptyViewWithTarget:(nullable id)target action:(nullable SEL)action {
     WMFEmptyView *view = [[self class] emptyView];
     view.imageView.image = [UIImage imageNamed:@"reading-lists-empty-state"];
     view.titleLabel.text = WMFLocalizedStringWithDefaultValue(@"empty-no-reading-lists-title", nil, nil, @"Organize saved articles with reading lists", @"Title of a blank screen shown when a user has no reading lists");
@@ -125,7 +157,99 @@
     return view;
 }
 
-- (void)configureButtonWithTitle:(NSString *)title image:(UIImage *)image target:(nullable id)target action:(nonnull SEL)action {
++ (instancetype)noSelectedImageToInsertEmptyView {
+    WMFEmptyView *view = [[self class] emptyView];
+    view.imageView.image = [UIImage imageNamed:@"insert-media/blank"];
+    view.titleLabel.text = WMFLocalizedStringWithDefaultValue(@"empty-insert-media-title", nil, nil, @"Select a file from Wikimedia Commons", @"Text for placeholder label visible when no file was selected or uploaded");
+    view.titleLabelTextColorKeyPath = @"colors.secondaryText";
+    view.backgroundColorKeyPath = @"colors.baseBackground";
+
+    [view.messageLabel removeFromSuperview];
+    [view.actionLabel removeFromSuperview];
+    [view.actionLine removeFromSuperview];
+    [view.button removeFromSuperview];
+    return view;
+}
+
++ (instancetype)unableToLoadTalkPageEmptyView {
+    WMFEmptyView *view = [[self class] emptyView];
+    view.imageView.image = [UIImage imageNamed:@"unable-to-load-talk-page"];
+    view.titleLabel.text = WMFLocalizedStringWithDefaultValue(@"unable-to-load-talk-page-title", nil, nil, @"Unable to load talk page", @"Text for placeholder label visible when talk page can't be loaded");
+    view.backgroundColorKeyPath = @"colors.midBackground";
+
+    [view.messageLabel removeFromSuperview];
+    [view.actionLabel removeFromSuperview];
+    [view.actionLine removeFromSuperview];
+    [view.button removeFromSuperview];
+    return view;
+}
+
++ (instancetype)emptyTalkPageEmptyView {
+    WMFEmptyView *view = [[self class] emptyView];
+    view.imageView.image = [UIImage imageNamed:@"empty-talk-page"];
+    view.titleLabel.text = WMFLocalizedStringWithDefaultValue(@"empty-talk-page-title", nil, nil, @"No messages have been posted for this user yet", @"Text for placeholder label visible when talk page is empty");
+    view.backgroundColorKeyPath = @"colors.midBackground";
+
+    [view.messageLabel removeFromSuperview];
+    [view.actionLabel removeFromSuperview];
+    [view.actionLine removeFromSuperview];
+    [view.button removeFromSuperview];
+    return view;
+}
+
++ (instancetype)emptyDiffCompareEmptyView {
+    WMFEmptyView *view = [[self class] emptyView];
+    view.imageView.image = [UIImage imageNamed:@"empty-diff"];
+    view.titleLabel.text = WMFLocalizedStringWithDefaultValue(@"empty-diff-compare-title", nil, nil, @"No differences between revisions", @"Text for placeholder label visible when diff comparision between revisions is empty.");
+    view.backgroundColorKeyPath = @"colors.midBackground";
+
+    [view.messageLabel removeFromSuperview];
+    [view.actionLabel removeFromSuperview];
+    [view.actionLine removeFromSuperview];
+    [view.button removeFromSuperview];
+    return view;
+}
+
++ (instancetype)emptyDiffSingleEmptyView {
+    WMFEmptyView *view = [[self class] emptyView];
+    view.imageView.image = [UIImage imageNamed:@"empty-single-diff"];
+    view.titleLabel.text = WMFLocalizedStringWithDefaultValue(@"empty-diff-single-title", nil, nil, @"No viewable changes made", @"Text for placeholder label visible when diff returned for single revision is empty.");
+    view.backgroundColorKeyPath = @"colors.midBackground";
+
+    [view.messageLabel removeFromSuperview];
+    [view.actionLabel removeFromSuperview];
+    [view.actionLine removeFromSuperview];
+    [view.button removeFromSuperview];
+    return view;
+}
+
++ (instancetype)errorDiffCompareEmptyView {
+    WMFEmptyView *view = [[self class] emptyView];
+    view.imageView.image = [UIImage imageNamed:@"error-diff"];
+    view.titleLabel.text = [WMFCommonStrings diffErrorTitle];
+    view.backgroundColorKeyPath = @"colors.midBackground";
+
+    [view.messageLabel removeFromSuperview];
+    [view.actionLabel removeFromSuperview];
+    [view.actionLine removeFromSuperview];
+    [view.button removeFromSuperview];
+    return view;
+}
+
++ (instancetype)errorDiffSingleEmptyView {
+    WMFEmptyView *view = [[self class] emptyView];
+    view.imageView.image = [UIImage imageNamed:@"error-single-diff"];
+    view.titleLabel.text = [WMFCommonStrings diffErrorTitle];
+    view.backgroundColorKeyPath = @"colors.midBackground";
+
+    [view.messageLabel removeFromSuperview];
+    [view.actionLabel removeFromSuperview];
+    [view.actionLine removeFromSuperview];
+    [view.button removeFromSuperview];
+    return view;
+}
+
+- (void)configureButtonWithTitle:(NSString *)title image:(UIImage *)image target:(nullable id)target action:(nullable SEL)action {
     [self.button setTitle:title forState:UIControlStateNormal];
     [self.button setImage:image forState:UIControlStateNormal];
     [self.button setHorizontalSpacing:7];
@@ -140,9 +264,15 @@
 
 - (void)traitCollectionDidChange:(nullable UITraitCollection *)previousTraitCollection {
     [super traitCollectionDidChange:previousTraitCollection];
+    [self updateFonts];
+    [self updateImageView];
+}
 
+- (void)updateFonts {
     self.button.titleLabel.font = [UIFont wmf_fontForDynamicTextStyle:[WMFDynamicTextStyle semiboldBody] compatibleWithTraitCollection:self.traitCollection];
+}
 
+- (void)updateImageView {
     if (![self.imageView superview]) {
         return;
     }
@@ -153,6 +283,8 @@
 
 - (void)layoutSubviews {
     [super layoutSubviews];
+    
+    [self.delegate heightChanged:self.bounds.size.height];
 
     if (![self.actionLine superview]) {
         return;
@@ -180,12 +312,12 @@
 - (void)applyTheme:(WMFTheme *)theme {
     self.theme = theme;
     self.imageView.tintColor = theme.colors.tertiaryText;
-    self.titleLabel.textColor = theme.colors.primaryText;
+    self.titleLabel.textColor = [theme valueForKeyPath:self.titleLabelTextColorKeyPath];
     self.messageLabel.textColor = theme.colors.secondaryText;
     self.actionLabel.textColor = theme.colors.secondaryText;
     self.button.tintColor = theme.colors.link;
     self.button.backgroundColor = theme.colors.cardButtonBackground;
-    self.backgroundColor = theme.colors.paperBackground;
+    self.backgroundColor = [theme valueForKeyPath:self.backgroundColorKeyPath];
     [self setNeedsLayout];
 }
 

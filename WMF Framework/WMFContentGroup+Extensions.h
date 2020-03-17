@@ -61,7 +61,7 @@ typedef NS_ENUM(int16_t, WMFContentGroupUndoType) {
 - (void)updateDailySortPriorityWithSiteURLSortOrder:(nullable NSDictionary<NSString *, NSNumber *> *)siteURLSortOrder;
 
 + (nullable NSURL *)mainPageURLForSiteURL:(NSURL *)URL;
-+ (nullable NSURL *)continueReadingContentGroupURL;
++ (nullable NSURL *)continueReadingContentGroupURLForArticleURL:(NSURL *)articleURL;
 + (nullable NSURL *)relatedPagesContentGroupURLForArticleURL:(NSURL *)articleURL;
 + (nullable NSURL *)articleURLForRelatedPagesContentGroupURL:(nullable NSURL *)url;
 + (nullable NSURL *)announcementURLForSiteURL:(NSURL *)siteURL identifier:(NSString *)identifier;
@@ -82,7 +82,7 @@ typedef NS_ENUM(int16_t, WMFContentGroupUndoType) {
 - (void)setFullContentObject:(id<NSCoding>)fullContentObject; // will automatically create or update fullContent relationship
 - (void)updateContentPreviewWithContent:(id)content;
 
-- (void)updateVisibility;
+- (void)updateVisibilityForUserIsLoggedIn:(BOOL)isLoggedIn;
 - (void)markDismissed;
 
 @end
@@ -110,6 +110,8 @@ typedef NS_ENUM(int16_t, WMFContentGroupUndoType) {
 - (void)enumerateContentGroupsOfKind:(WMFContentGroupKind)kind sortedByKey:(NSString *)key ascending:(BOOL)ascending withBlock:(void (^)(WMFContentGroup *_Nonnull group, BOOL *stop))block;
 
 - (nullable WMFContentGroup *)newestVisibleGroupOfKind:(WMFContentGroupKind)kind;
+
+- (nullable WMFContentGroup *)newestVisibleGroupOfKind:(WMFContentGroupKind)kind withPredicate:(nullable NSPredicate *)predicate;
 
 - (nullable WMFContentGroup *)newestGroupOfKind:(WMFContentGroupKind)kind;
 

@@ -1,5 +1,7 @@
+import Foundation
+
 @objc public extension WMFContentGroup {
-    public var eventLoggingLabel: EventLoggingLabel? {
+    var eventLoggingLabel: EventLoggingLabel? {
         switch contentGroupKind {
         case .featuredArticle:
             return .featuredArticle
@@ -23,6 +25,11 @@
             return .mainPage
         case .pictureOfTheDay:
             return .pictureOfTheDay
+        case .announcement:
+            guard let announcement = contentPreview as? WMFAnnouncement else {
+                return .announcement
+            }
+            return announcement.placement == "article" ? .articleAnnouncement : .announcement
         default:
             return nil
         }

@@ -2,12 +2,16 @@
 public enum WMFPasswordResetterError: LocalizedError {
     case cannotExtractResetStatus
     case resetStatusNotSuccess
+    case accountError(String)
+
     public var errorDescription: String? {
         switch self {
         case .cannotExtractResetStatus:
             return "Could not extract status"
         case .resetStatusNotSuccess:
             return "Password reset did not succeed"
+        case .accountError(let message):
+            return message
         }
     }
 }
@@ -21,33 +25,31 @@ public struct WMFPasswordResetterResult {
     }
 }
 
-public class WMFPasswordResetter {
-    private let manager = AFHTTPSessionManager.wmf_createDefault()
-    public func isFetching() -> Bool {
-        return manager.operationQueue.operationCount > 0
-    }
-    public func resetPassword(siteURL: URL, token: String, userName:String?, email:String?, success: @escaping WMFPasswordResetterResultBlock, failure: @escaping WMFErrorHandler){
-        let manager = AFHTTPSessionManager(baseURL: siteURL)
-        manager.responseSerializer = WMFApiJsonResponseSerializer.init();
-
+public class WMFPasswordResetter: Fetcher {
+    public func resetPassword(siteURL: URL, userName:String?, email:String?, success: @escaping WMFPasswordResetterResultBlock, failure: @escaping WMFErrorHandler){
         var parameters = [
             "action": "resetpassword",
-            "token": token,
             "format": "json"
         ];
         
-        if let userName = userName, userName.count > 0 {
+        if let userName = userName, !userName.isEmpty {
             parameters["user"] = userName
         }else {
-            if let email = email, email.count > 0 {
+            if let email = email, !email.isEmpty {
                 parameters["email"] = email
             }
         }
-        
-        _ = manager.wmf_apiPOST(with: parameters, success: { (_, response) in
+        performTokenizedMediaWikiAPIPOST(to: siteURL, with: parameters) { (result, response, error) in
+            if let error = error {
+                failure(error)
+                return
+            }
+            if let error = result?["error"] as? [String: Any], let info = error["info"] as? String {
+                failure(WMFPasswordResetterError.accountError(info))
+                return
+            }
             guard
-                let response = response as? [String : AnyObject],
-                let resetpassword = response["resetpassword"] as? [String: Any],
+                let resetpassword = result?["resetpassword"] as? [String: Any],
                 let status = resetpassword["status"] as? String
                 else {
                     failure(WMFPasswordResetterError.cannotExtractResetStatus)
@@ -58,8 +60,6 @@ public class WMFPasswordResetter {
                 return
             }
             success(WMFPasswordResetterResult.init(status: status))
-        }, failure: { (_, error) in
-            failure(error)
-        })
+        }
     }
 }

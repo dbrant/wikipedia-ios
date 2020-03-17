@@ -10,12 +10,7 @@
 }
 
 + (void)wmf_addLoggersForCurrentConfiguration {
-// only add TTY in debug mode
-#if DEBUG
-    [self wmf_addWMFFormattedLogger:[DDTTYLogger sharedInstance]];
-#endif
-    // always add ASLLogger
-    [self wmf_addWMFFormattedLogger:[DDASLLogger sharedInstance]];
+    [self wmf_addWMFFormattedLogger:[DDOSLogger sharedInstance]];
 
     DDFileLogger *fileLogger = [[DDFileLogger alloc] init];
     fileLogger.logFileManager.maximumNumberOfLogFiles = 7;
